@@ -24,8 +24,8 @@ export const addAnthropicPreamble: ProxyRequestMiddleware = (
 
     // add assistant at the end of the prompt, but only if the last chat "turn"
     // not already an assistant turn
-    const humanIndex = prompt.indexOf("\n\nHuman:");
-    const assistantIndex = prompt.indexOf("\n\nAssistant:");
+    const humanIndex = prompt.lastIndexOf("\n\nHuman:");
+    const assistantIndex = prompt.lastIndexOf("\n\nAssistant:");
     if (humanIndex > assistantIndex) {
       prompt += "\n\nAssistant:";
       req.log.debug(
