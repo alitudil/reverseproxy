@@ -30,6 +30,7 @@ export const addAnthropicPreamble: ProxyRequestMiddleware = (
   if (req.key.requiresPreamble) {
     preamble = prompt.startsWith("\n\nHuman:") ? "" : "\n\nHuman:";
     req.log.info({ key: req.key.hash, preamble }, "Adding preamble to prompt");
+    prompt = preamble + prompt;
 
     // add assistant at the end of the prompt, but only if the last chat "turn"
     // not already an assistant turn
@@ -39,12 +40,13 @@ export const addAnthropicPreamble: ProxyRequestMiddleware = (
       { humanIndex, assistantIndex },
       "Checking if assistant postamble is needed"
     );
+
     if (humanIndex > assistantIndex) {
       prompt += "\n\nAssistant:";
       req.log.info("Adding assistant postamble to prompt");
     }
   }
-  req.body.prompt = preamble + prompt;
+  req.body.prompt = prompt;
 };
 
 function assertAnthropicKey(key: Key): asserts key is AnthropicKey {
