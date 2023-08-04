@@ -29,7 +29,7 @@ export const addAnthropicPreamble: ProxyRequestMiddleware = (
     if (humanIndex > assistantIndex) {
       prompt += "\n\nAssistant:";
       req.log.debug(
-        { humanIndex, assistantIndex },
+        { modifiedPrompt: prompt, humanIndex, assistantIndex },
         "Adding assistant postamble to prompt"
       );
     }
