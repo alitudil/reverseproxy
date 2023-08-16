@@ -81,6 +81,25 @@ export function getUsers() {
   return Array.from(users.values()).map((user) => ({ ...user }));
 }
 
+
+export function getPublicUsers() {
+  try {
+	  const usersArray = Array.from(users);
+	  const updatedUsersArray = usersArray.map((user, index) => {
+		const updatedUser = {
+		  ...user[1],
+		  token: index,
+		  ip: [],
+		  disabledReason: "Hidden"
+		};
+		return updatedUser;
+	  });
+	  return updatedUsersArray;
+  } catch (error) {
+    return "{'error':'An error occurred while retrieving public users'}"
+  }
+}
+
 /**
  * Upserts the given user. Intended for use with the /admin API for updating
  * user information via JSON. Use other functions for more specific operations.

@@ -9,12 +9,16 @@ import { logger } from "./logger";
 import { keyPool } from "./key-management";
 import { adminRouter } from "./admin/routes";
 import { proxyRouter } from "./proxy/routes";
-import { handleInfoPage } from "./info-page";
+import { handleInfoPage, handleStatusPage } from "./info-page";
 import { logQueue } from "./prompt-logging";
 import { start as startRequestQueue } from "./proxy/queue";
 import { init as initUserStore } from "./proxy/auth/user-store";
 import { init as initTokenizers } from "./tokenization";
 import { checkOrigin } from "./proxy/check-origin";
+
+import * as userStore from "./proxy/auth/user-store";
+import { UserSchema, UserSchemaWithToken, parseSort, sortBy } from "./admin/common";
+
 
 const PORT = config.port;
 
@@ -26,7 +30,7 @@ app.use(
     logger,
     autoLogging: {
       ignore: (req) => {
-        const ignored = ["/proxy/kobold/api/v1/model", "/health"];
+        const ignored = ["/proxy/kobold/api/v1/model", "/health", "/users-stats"];
         return ignored.includes(req.url as string);
       },
     },
@@ -54,6 +58,21 @@ app.set("view engine", "ejs");
 app.set("views", path.join(__dirname, "views"));
 
 app.get("/health", (_req, res) => res.sendStatus(200));
+
+
+app.get("/status", (_req, res) => res.send(handleStatusPage(_req)));
+
+
+function get_user_stats() {
+	const sort = ["promptCount", "lastUsedAt"];
+    const users = userStore.getPublicUsers();
+    return { users, count: users.length };
+}
+
+app.get("/users-stats", (_req, res) => res.send(get_user_stats())
+
+);
+
 app.use(cors());
 app.use(checkOrigin);
 

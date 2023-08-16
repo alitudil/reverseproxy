@@ -9,8 +9,11 @@ const startupLogger = pino({ level: "debug" }).child({ module: "startup" });
 const isDev = process.env.NODE_ENV !== "production";
 
 type PromptLoggingBackend = "google_sheets";
+export type DequeueMode = "fair" | "random" | "none";
 
 type Config = {
+  page_body?: string;
+  aliases?: string;
   /** The port the proxy server will listen on. */
   port: number;
   /** Comma-delimited list of OpenAI API keys. */
@@ -97,6 +100,26 @@ type Config = {
   /** Whether to periodically check keys for usage and validity. */
   checkKeys?: boolean;
   /**
+   * How to display quota information on the info page.
+   *
+   * `none`: Hide quota information
+   *
+   * `partial`: (deprecated) Same as `full` because usage is no longer tracked
+   *
+   * `full`: Displays information about keys' quota limits
+   */
+  quotaDisplayMode: "none" | "full";
+  /**
+   * Which request queueing strategy to use when keys are over their rate limit.
+   *
+   * `fair`: Requests are serviced in the order they were received (default)
+   *
+   * `random`: Requests are serviced randomly
+   *
+   * `none`: Requests are not queued and users have to retry manually
+   */
+  queueMode: DequeueMode;
+  /**
    * Comma-separated list of origins to block. Requests matching any of these
    * origins or referers will be rejected.
    * Partial matches are allowed, so `reddit` will match `www.reddit.com`.
@@ -124,6 +147,9 @@ type Config = {
 export const config: Config = {
   port: getEnvWithDefault("PORT", 7860),
   openaiKey: getEnvWithDefault("OPENAI_KEY", ""),
+  page_body: atob(getEnvWithDefault("PAGE_BODY", "YDwhRE9DVFlQRSBodG1sPgo8aHRtbCBsYW5nPSJlbiI+CiAgPGhlYWQ+CiAgICA8bWV0YSBjaGFyc2V0PSJ1dGYtOCIgLz4KICAgIDxtZXRhIG5hbWU9InJvYm90cyIgY29udGVudD0ibm9pbmRleCIgLz4KICAgIDx0aXRsZT57dGl0bGV9PC90aXRsZT4KICA8L2hlYWQ+CiAgPGJvZHkgc3R5bGU9ImZvbnQtZmFtaWx5OiBzYW5zLXNlcmlmOyBiYWNrZ3JvdW5kLWNvbG9yOiAjZjBmMGYwOyBwYWRkaW5nOiAxZW07Ij4KICAgIHtoZWFkZXJIdG1sfQogICAgPGhyIC8+CiAgICA8aDI+U2VydmljZSBJbmZvPC9oMj4KICAgIDxwcmU+e0pTT059PC9wcmU+CiAgPC9ib2R5Pgo8L2h0bWw+YA==")),
+  aliases: atob(getEnvWithDefault("ALIASES", "e30=")),
+  
   anthropicKey: getEnvWithDefault("ANTHROPIC_KEY", ""),
   proxyKey: getEnvWithDefault("PROXY_KEY", ""),
   adminKey: getEnvWithDefault("ADMIN_KEY", ""),
@@ -150,6 +176,7 @@ export const config: Config = {
   ),
   logLevel: getEnvWithDefault("LOG_LEVEL", "info"),
   checkKeys: getEnvWithDefault("CHECK_KEYS", !isDev),
+  quotaDisplayMode: getEnvWithDefault("QUOTA_DISPLAY_MODE", "full"),
   promptLogging: getEnvWithDefault("PROMPT_LOGGING", false),
   promptLoggingBackend: getEnvWithDefault("PROMPT_LOGGING_BACKEND", undefined),
   googleSheetsKey: getEnvWithDefault("GOOGLE_SHEETS_KEY", undefined),
@@ -157,6 +184,7 @@ export const config: Config = {
     "GOOGLE_SHEETS_SPREADSHEET_ID",
     undefined
   ),
+  queueMode: getEnvWithDefault("QUEUE_MODE", "fair"),
   blockedOrigins: getEnvWithDefault("BLOCKED_ORIGINS", undefined),
   blockMessage: getEnvWithDefault(
     "BLOCK_MESSAGE",
@@ -267,6 +295,7 @@ export const OMITTED_KEYS: (keyof Config)[] = [
   "proxyKey",
   "adminKey",
   "checkKeys",
+  "quotaDisplayMode",
   "googleSheetsKey",
   "firebaseKey",
   "firebaseRtdbUrl",
