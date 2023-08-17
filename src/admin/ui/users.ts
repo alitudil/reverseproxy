@@ -40,6 +40,14 @@ router.post("/create-user", (_req, res) => {
   return res.redirect(`/admin/manage/create-user?created=true`);
 });
 
+router.post("/create-temp-user", (_req, res) => {
+  userStore.createTempUser(_req.body.promptLimit,_req.body.timeLimit);
+  return res.redirect(`/admin/manage/create-user?created=true`);
+});
+
+
+
+
 router.get("/view-user/:token", (req, res) => {
   const user = userStore.getUser(req.params.token);
   if (!user) {

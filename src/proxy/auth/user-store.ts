@@ -21,6 +21,11 @@ export interface User {
   type: UserType;
   /** The number of prompts the user has made. */
   promptCount: number;
+  /** Prompt Limit for temp user */ 
+  promptLimit?: number;
+  /** Time Limit for temp user */ 
+  endTimeLimit?: number;
+  timeLimit?: number;
   /** The number of tokens the user has consumed. Not yet implemented. */
   tokenCount: number;
   /** The time at which the user was created. */
@@ -31,6 +36,7 @@ export interface User {
   disabledAt?: number;
   /** The reason for which the user was disabled, if applicable. */
   disabledReason?: string;
+ 
 }
 
 /**
@@ -39,7 +45,7 @@ export interface User {
  * - `special`: Special role. Higher quotas and exempt from auto-ban/lockout.
  * TODO: implement auto-ban/lockout for normal users when they do naughty shit
  */
-export type UserType = "normal" | "special";
+export type UserType = "normal" | "special" | "temp";
 
 type UserUpdate = Partial<User> & Pick<User, "token">;
 
@@ -70,6 +76,26 @@ export function createUser() {
   usersToFlush.add(token);
   return token;
 }
+
+/** Creates a new temp user and returns their token. */
+export function createTempUser(pLimit: number, tLimit: number) {
+  const token = "temp-"+uuid();
+  users.set(token, {
+    token,
+    ip: [],
+    type: "temp",
+    promptCount: 0,
+	promptLimit: pLimit,
+	timeLimit: tLimit,
+	endTimeLimit: -1,
+    tokenCount: 0,
+    createdAt: Date.now(),
+  });
+  usersToFlush.add(token);
+  return token;
+}
+
+
 
 /** Returns the user with the given token if they exist. */
 export function getUser(token: string) {
@@ -110,6 +136,7 @@ export function upsertUser(user: UserUpdate) {
     ip: [],
     type: "normal",
     promptCount: 0,
+	promptLimit: -1,
     tokenCount: 0,
     createdAt: Date.now(),
   };
@@ -133,6 +160,23 @@ export function incrementPromptCount(token: string) {
   const user = users.get(token);
   if (!user) return;
   user.promptCount++;
+  if(user.type == "temp" && (user.disabledAt ?? false) == false) {
+	  if ((user.endTimeLimit ?? 0) == -1) {
+		  user.endTimeLimit = Date.now() + ((user.timeLimit ?? 0)*1000);
+		  user.promptLimit = -1;
+		  }
+	  if ((user.promptLimit ?? 0) != -1 && user.promptCount >=  (user.promptLimit ?? 0)) {
+		  // Ban user over limit 
+		  user.disabledReason = "user_token's prompt limit reached.";
+		  user.disabledAt = Date.now();
+	  } else if ((user.promptLimit ?? 0) == -1 && Date.now() >= (user.endTimeLimit ?? 0) && (user.timeLimit ?? -1) != -1) {
+		  // Ban user over time limit 
+		  user.disabledReason = "user_token's time limit reached.";
+		  user.disabledAt = Date.now();
+	  }
+  }
+  
+  
   usersToFlush.add(token);
 }
 

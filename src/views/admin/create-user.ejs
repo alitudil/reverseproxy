@@ -1,10 +1,29 @@
 <%- include("../_partials/admin-header", { title: "Create User - OAI Reverse Proxy Admin" }) %>
 <!-- 
  -->
-<h1>Create User Token</h1>
+<h1>Create Permament User Token</h1>
 <form action="/admin/manage/create-user" method="post">
   <input type="hidden" name="_csrf" value="<%= csrfToken %>" />
   <input type="submit" value="Create" />
+</form>
+
+<h1>Create Prompt Lmited Temporary User Token</h1>
+<form action="/admin/manage/create-temp-user" method="post">
+  <input type="hidden" name="_csrf" value="<%= csrfToken %>" />
+  <input type="hidden" name="timeLimit" value="-1" />
+  <input type="submit" value="Create" /> Prompt limit: <input type="number" value="100" name="promptLimit" />
+</form>
+
+<h1>Create Time Lmited Temporary User Token</h1>
+<form action="/admin/manage/create-temp-user" method="post">
+  <input type="hidden" name="_csrf" value="<%= csrfToken %>" />
+  <input type="submit" value="Create" /> Time limit (Seconds): <input type="number" value="3600" name="timeLimit" /><br>
+<ul>
+<li> 1 hour   = 3600</li>
+<li> 6 hours  = 21600</li>
+<li> 12 hours = 43200</li>
+<li> 24 hours = 86400</li>
+</ul>
 </form>
 <% if (newToken) { %>
   <p>Just created <code><%= recentUsers[0].token %></code>.</p>
