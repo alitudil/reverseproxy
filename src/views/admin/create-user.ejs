@@ -17,6 +17,7 @@
 <h1>Create Time Lmited Temporary User Token</h1>
 <form action="/admin/manage/create-temp-user" method="post">
   <input type="hidden" name="_csrf" value="<%= csrfToken %>" />
+  <input type="hidden" name="promptLimit" value="-1" />
   <input type="submit" value="Create" /> Time limit (Seconds): <input type="number" value="3600" name="timeLimit" /><br>
 <ul>
 <li> 1 hour   = 3600</li>
