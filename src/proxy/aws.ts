@@ -69,6 +69,8 @@ const awsResponseHandler: ProxyResHandlerWithBody = async (
     throw new Error("Expected body to be an object");
   }
 
+  console.log(res);
+
 
   if (req.inboundApi === "openai") {
     req.log.info("Transforming AWS response to OpenAI format");
