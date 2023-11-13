@@ -34,6 +34,7 @@ export const finalizeBody: ProxyRequestMiddleware = (proxyReq, req) => {
 
       req.headers['Authorization'] = `AWS4-HMAC-SHA256 Credential=${accessKeyId}/${date}/${region}/bedrock/aws4_request, SignedHeaders=host;x-amz-date, Signature=${signature}`;
       req.headers['x-amzn-bedrock-accept'] = "application/json";
+      req.headers['host'] = `bedrock-${region}.amazonaws.com`;
     }
 
     proxyReq.setHeader("Content-Length", Buffer.byteLength(updatedBody));
