@@ -163,7 +163,7 @@ const rewriteAwsRequest = (
 const awsProxy = createQueueMiddleware(
   createProxyMiddleware({
     target: "https://bedrock-runtime.us-west-2.amazonaws.com/model/anthropic.claude-v2/invoke",
-    changeOrigin: false,
+    changeOrigin: true,
     on: {
       proxyReq: rewriteAwsRequest,
       proxyRes: createOnProxyResHandler([awsResponseHandler]),
