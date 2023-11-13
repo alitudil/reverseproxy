@@ -43,6 +43,8 @@ export const addKey: ProxyRequestMiddleware = (proxyReq, req) => {
   if (req.inboundApi === "openai" && req.outboundApi === "anthropic") {
     req.log.debug("Using an Anthropic key for an OpenAI-compatible request");
     assignedKey = keyPool.get("claude-v1");
+  } else if (req.inboundApi === "aws") {
+	assignedKey = keyPool.get("anthropic.claude-v2")   
   } else {
     assignedKey = keyPool.get(req.body.model);
   }

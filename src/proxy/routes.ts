@@ -12,7 +12,7 @@ import { openai } from "./openai";
 import { anthropic } from "./anthropic";
 import { palm } from "./palm";
 import { ai21 } from "./ai21";
-
+import { aws } from "./aws";
 
 const proxyRouter = express.Router();
 proxyRouter.use(
@@ -31,6 +31,6 @@ proxyRouter.use("/openai", openai);
 proxyRouter.use("/anthropic", anthropic);
 proxyRouter.use("/palm", palm);
 proxyRouter.use("/ai21", ai21);
-
+proxyRouter.use("/aws", aws);
 
 export { proxyRouter as proxyRouter };

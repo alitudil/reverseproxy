@@ -27,6 +27,25 @@ const AnthropicV1CompleteSchema = z.object({
   metadata: z.any().optional(),
 });
 
+const AwsV1CompleteSchema = z.object({
+  model: z.string(),
+  prompt: z.string({
+    required_error:
+      "No prompt found. Are you sending an OpenAI-formatted request to the Claude endpoint?",
+  }),
+  max_tokens_to_sample: z.coerce
+    .number()
+    .int()
+    .transform((v) => Math.min(v, CLAUDE_OUTPUT_MAX)),
+  stop_sequences: z.array(z.string()).optional(),
+  stream: z.boolean().optional().default(false),
+  temperature: z.coerce.number().optional().default(1),
+  top_k: z.coerce.number().optional().default(-1),
+  top_p: z.coerce.number().optional().default(-1),
+  metadata: z.any().optional(),
+});
+
+
   
 // https://platform.openai.com/docs/api-reference/chat/create
 const OpenAIV1ChatCompletionSchema = z.object({
@@ -162,8 +181,8 @@ export const transformOutboundPayload: RequestPreprocessor = async (req) => {
     const validator =
       req.outboundApi === "openai"
         ? OpenAIV1ChatCompletionSchema
-		: req.outboundApi === "anthropic"
-		? AnthropicV1CompleteSchema
+		: req.outboundApi === "anthropic" || req.outboundApi === "aws"
+		? AwsV1CompleteSchema
 		: OpenAIV1TextCompletionSchema;
     const result = validator.safeParse(req.body);
     if (!result.success) {

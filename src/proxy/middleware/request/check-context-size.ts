@@ -31,6 +31,10 @@ export const checkContextSize: RequestPreprocessor = async (req) => {
       req.outputTokens = req.body.max_tokens_to_sample;
       prompt = req.body.prompt;
       break;
+	case "aws":
+      req.outputTokens = req.body.max_tokens_to_sample;
+      prompt = req.body.prompt;
+      break;  
 	case "palm":
 	  req.outputTokens = 1; // ._. 
       prompt = req.body.prompt;

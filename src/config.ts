@@ -28,6 +28,8 @@ type Config = {
   port: number;
   /** Comma-delimited list of OpenAI API keys. */
   openaiKey?: string;
+  /** Comma-delimited list of OpenAI API keys. */
+  awsKey?: string;
   /** Comma-delimited list of Palm API keys */
   palmKey?: string;
   /** Comma-delimited list of Ai21 API keys  */
@@ -162,6 +164,7 @@ export const config: Config = {
   restrictedModelMessage: getEnvWithDefault("RESTRICTED_MODEL_MESSAGE", "You are not allowed to use this type of models."),
   openaiKey: getEnvWithDefault("OPENAI_KEY", ""),
   palmKey: getEnvWithDefault("PALM_KEY", ""),
+  awsKey: getEnvWithDefault("AWS_KEY", ""),
   ai21Key: getEnvWithDefault("AI21_KEY", ""),
   page_body: atob(getEnvWithDefault("PAGE_BODY", "YDwhRE9DVFlQRSBodG1sPgo8aHRtbCBsYW5nPSJlbiI+CiAgPGhlYWQ+CiAgICA8bWV0YSBjaGFyc2V0PSJ1dGYtOCIgLz4KICAgIDxtZXRhIG5hbWU9InJvYm90cyIgY29udGVudD0ibm9pbmRleCIgLz4KICAgIDx0aXRsZT57dGl0bGV9PC90aXRsZT4KICA8L2hlYWQ+CiAgPGJvZHkgc3R5bGU9ImZvbnQtZmFtaWx5OiBzYW5zLXNlcmlmOyBiYWNrZ3JvdW5kLWNvbG9yOiAjZjBmMGYwOyBwYWRkaW5nOiAxZW07Ij4KICAgIHtoZWFkZXJIdG1sfQogICAgPGhyIC8+CiAgICA8aDI+U2VydmljZSBJbmZvPC9oMj4KICAgIDxwcmU+e0pTT059PC9wcmU+CiAgPC9ib2R5PgogIDxiIGlkPSJ1YyI+CiAgPGEgaHJlZj0iL3VzZXIvbG9naW4iIHRhcmdldD0iX2JsYW5rIiBzdHlsZT0iYmFja2dyb3VuZC1jb2xvcjogIzRDQUY1MDtib3JkZXI6IG5vbmU7Y29sb3I6IHdoaXRlO3BhZGRpbmc6IDE1cHggMzJweDt0ZXh0LWFsaWduOiBjZW50ZXI7dGV4dC1kZWNvcmF0aW9uOiBub25lO2Rpc3BsYXk6IGlubGluZS1ibG9jaztmb250LXNpemU6IDE2cHg7bWFyZ2luOiA0cHggMnB4O2N1cnNvcjogcG9pbnRlcjsiIGhpZGRlbj5DaGVjayB1c2VyX3Rva2VuPC9hPgogIDwvYj4KICA8c2NyaXB0PgogIGxldCBnYXRla2VlcGVyID0gIntjb25maWc6Z2F0ZWtlZXBlcn0iCiAgaWYgKGdhdGVrZWVwZXIgPT0gInVzZXJfdG9rZW4iKSB7CiAgICBkb2N1bWVudC5nZXRFbGVtZW50QnlJZCgidWMiKS5oaWRkZW4gPSBmYWxzZTsKICB9CiAgPC9zY3JpcHQ+CjwvaHRtbD5gCg==")),
   promptInjections: JSON.parse(atob(getEnvWithDefault("PROMPT_INJECTIONS", "e30="))),
@@ -307,6 +310,7 @@ export const OMITTED_KEYS: (keyof Config)[] = [
   "openaiKey",
   "palmKey",
   "ai21Key", 
+  "awsKey",
   "anthropicKey",
   "proxyKey",
   "adminKey",
