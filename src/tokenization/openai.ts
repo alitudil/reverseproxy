@@ -32,8 +32,8 @@ export function getTokenCount(messages: any[], model: string) {
         // DoS.
         // 100k tokens allows for future 100k GPT-4 models and 500k characters
         // is just a sanity check
-        if (value.length > 500000 || numTokens > 100000) {
-          numTokens = 100000;
+        if (value.length > 750000 || numTokens > 131072) {
+          numTokens = 131072;
           return {
             tokenizer: "tiktoken (prompt length limit exceeded)",
             token_count: numTokens,

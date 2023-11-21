@@ -44,6 +44,7 @@ const getModelsResponse = () => {
     "claude-instant-v1.0",
     "claude-2", // claude-2 is 100k by default it seems
     "claude-2.0",
+    "claude-2.1"
   ];
 
   const models = claudeVariants.map((id) => ({

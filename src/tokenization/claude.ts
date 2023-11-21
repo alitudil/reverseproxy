@@ -17,8 +17,8 @@ export function init() {
 
 export function getTokenCount(prompt: string) {
   let numTokens = 0;
-  if (prompt.length > 500000) {
-	  numTokens = 100000;
+  if (prompt.length > 1000000) {
+	  numTokens = 200000;
 	  return {
 		tokenizer: "tiktoken (prompt length limit exceeded)",
 		token_count: numTokens,
