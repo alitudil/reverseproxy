@@ -21,11 +21,11 @@ import { logger } from "../logger";
 import { AGNAI_DOT_CHAT_IP } from "./rate-limit";
 
 import { init } from "../tokenization";
-
+import { RequestPreprocessor } from "./middleware/request";
 import { buildFakeSseMessage } from "./middleware/common";
 
 
-export type QueuePartition = "claude" | "turbo" | "gpt-4" | "gpt-4-32k" | "palm" | "ai21";
+export type QueuePartition = "claude" | "turbo" | "gpt-4" | "gpt-4-32k" | "gpt-4-turbo" | "palm" | "ai21";
 
 const queue: Request[] = [];
 const log = logger.child({ module: "request-queue" });
@@ -200,6 +200,7 @@ function processQueue() {
   // the others, because we only track one rate limit per key.
   const gpt4Lockout = keyPool.getLockoutPeriod("gpt-4");
   const gpt432kLockout = keyPool.getLockoutPeriod("gpt-4-32k");
+  const gpt4turboLockout = keyPool.getLockoutPeriod("gpt-4-32k");
   const turboLockout = keyPool.getLockoutPeriod("gpt-3.5-turbo");
   const claudeLockout = keyPool.getLockoutPeriod("claude-v1");
 
@@ -209,6 +210,9 @@ function processQueue() {
   }
   if (gpt432kLockout === 0) {
     reqs.push(dequeue("gpt-4-32k"));
+  }
+  if (gpt4turboLockout === 0) {
+    reqs.push(dequeue("gpt-4-turbo"));
   }
   if (turboLockout === 0) {
     reqs.push(dequeue("turbo"));
@@ -296,9 +300,23 @@ export function getQueueLength(partition: QueuePartition | "all" = "all") {
   return modelQueue.length;
 }
 
-export function createQueueMiddleware(proxyMiddleware: Handler): Handler {
+export function createQueueMiddleware({
+  beforeProxy,
+  proxyMiddleware,
+}: {
+  beforeProxy?: RequestPreprocessor;
+  proxyMiddleware: Handler;
+}): Handler {
   return (req, res, next) => {
-    req.proceed = () => {
+    req.proceed = async () => {
+      if (beforeProxy) {
+        // Hack to let us run asynchronous middleware before the
+        // http-proxy-middleware handler. This is used to sign AWS requests
+        // before they are proxied, as the signing is asynchronous.
+        // Unlike RequestPreprocessors, this runs every time the request is
+        // dequeued, not just the first time.
+        await beforeProxy(req);
+      }
       proxyMiddleware(req, res, next);
     };
 

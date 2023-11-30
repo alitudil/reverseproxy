@@ -128,7 +128,7 @@ function transformPalmResponse(
 ): Record<string, any> {
   const output = (palmBody.candidates[0]?.output || palmBody.candidates.output)?.trim();
   return {
-    id: "plm-" + palmBody.log_id,
+    id: "palm-" + palmBody.log_id,
     object: "chat.completion",
     created: Date.now(),
     model: palmBody.model,
@@ -150,8 +150,8 @@ function transformPalmResponse(
   };
 }
 
-const palmProxy = createQueueMiddleware(
-  createProxyMiddleware({
+const palmProxy = createQueueMiddleware({
+  proxyMiddleware: createProxyMiddleware({
     target: "https://generativelanguage.googleapis.com/v1beta2/models/text-bison-001:generateText",
     changeOrigin: true,
     on: {
@@ -165,7 +165,7 @@ const palmProxy = createQueueMiddleware(
 	  '^/proxy/palm/chat/completions': '', 
 	  }
   })
-);
+});
 
 const palmRouter = Router();
 // Fix paths because clients don't consistently use the /v1 prefix.

@@ -216,9 +216,14 @@ const getPromptForRequest = (req: Request): string | OaiMessage[] => {
   // format.
   if (req.outboundApi === "anthropic") {
     return req.body.prompt;
-  } if (req.outboundApi === "palm") {
+  } 
+  if (req.outboundApi === "aws") {
+    return req.body.prompt;
+  } 
+  if (req.outboundApi === "palm") {
     return req.body.candidates[0];
-  } if (req.outboundApi === "ai21") {
+  } 
+  if (req.outboundApi === "ai21") {
     return req.body.completions[0].data.text;
   }  else {
     return req.body.messages;

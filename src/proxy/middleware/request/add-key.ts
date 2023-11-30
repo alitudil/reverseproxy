@@ -43,6 +43,8 @@ export const addKey: ProxyRequestMiddleware = (proxyReq, req) => {
   if (req.inboundApi === "openai" && req.outboundApi === "anthropic") {
     req.log.debug("Using an Anthropic key for an OpenAI-compatible request");
     assignedKey = keyPool.get("claude-v1");
+  } else if (req.inboundApi === "aws") {
+	assignedKey = keyPool.getAWS("anthropic.claude-v2")   
   } else {
     assignedKey = keyPool.get(req.body.model);
   }
@@ -57,16 +59,24 @@ export const addKey: ProxyRequestMiddleware = (proxyReq, req) => {
     },
     "Assigned key to request"
   );
-
-  if (assignedKey.service === "anthropic") {
+  if (assignedKey.service === "aws") {
+	proxyReq.setHeader("OpenAI-Organization", `test`);
+  } else if (assignedKey.service === "anthropic") {
     proxyReq.setHeader("X-API-Key", assignedKey.key);
   } else if (assignedKey.service == "palm") {
 	proxyReq.setHeader("X-GOOG-API-KEY", assignedKey.key);
   } else {
-    proxyReq.setHeader("Authorization", `Bearer ${assignedKey.key}`);
-	if (assignedKey.org != "default") {
-		const encodedOrg = encodeURIComponent(assignedKey.org);
-		proxyReq.setHeader("OpenAI-Organization", `${encodedOrg}`);
+	if (assignedKey.key.includes(";")) {
+
+		proxyReq.setHeader("api-key", `${assignedKey.auth}`);
+		proxyReq.setHeader("User-Agent", `OpenAI/v1 PythonBindings/0.28.1`);
+		proxyReq.setHeader("Content-Type", `application/json`);
+	} else {
+		proxyReq.setHeader("Authorization", `Bearer ${assignedKey.key}`);
+		if (assignedKey.org != "default") {
+			const encodedOrg = encodeURIComponent(assignedKey.org);
+			proxyReq.setHeader("OpenAI-Organization", `${encodedOrg}`);
+		}
 	}
   }
 };

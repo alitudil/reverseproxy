@@ -8,6 +8,8 @@ import { createQueueMiddleware } from "./queue";
 import { ipLimiter } from "./rate-limit";
 import { handleProxyError } from "./middleware/common";
 import { RequestPreprocessor } from "./middleware/request";
+import { HttpRequest } from "@smithy/protocol-http";
+
 import {
   addKey,
   addImageFromPrompt,
@@ -37,20 +39,17 @@ function getModelsResponse() {
   const gptVariants = [
     "gpt-4",
     "gpt-4-0613",
-    "gpt-4-0314", // EOL 2023-09-13
     "gpt-4-32k",
     "gpt-4-32k-0613",
-    "gpt-4-32k-0314", // EOL 2023-09-13
     "gpt-4-1106-preview",
     "gpt-4-vision-preview",
     "gpt-3.5-turbo-1106", 
     "gpt-3.5-turbo",
-    "gpt-3.5-turbo-0301", // EOL 2023-09-13
     "gpt-3.5-turbo-0613",
     "gpt-3.5-turbo-16k",
     "gpt-3.5-turbo-16k-0613",
 	"gpt-3.5-turbo-instruct",
-    "gpt-3.5-turbo-instruct-0914",
+    "gpt-3.5-turbo-instruct-0914"
   ];
 
   const gpt4Available = keyPool.list().filter((key) => {
@@ -145,6 +144,7 @@ const rewriteRequest = (
     removeOriginHeaders,
     finalizeBody,
   ];
+  
 
   try {
     for (const rewriter of rewriterPipeline) {
@@ -165,7 +165,7 @@ const openaiResponseHandler: ProxyResHandlerWithBody = async (
   if (typeof body !== "object") {
     throw new Error("Expected body to be an object");
   }
-  
+
   //if (req.outboundApi === "openai-text" && req.inboundApi === "openai") {
   //  req.log.info("Transforming Turbo-Instruct response to Chat format");
   //  body = transformTurboInstructResponse(body);
@@ -175,19 +175,63 @@ const openaiResponseHandler: ProxyResHandlerWithBody = async (
   res.status(200).json(body);
 };
 
-const openaiProxy = createQueueMiddleware(
-  createProxyMiddleware({
-    target: "https://api.openai.com",
+
+const SPECIAL_HOST =
+  process.env.SPECIAL_HOST || "%endpoint%";
+
+
+
+
+export const specialCheck: RequestPreprocessor = async (req) => {
+	req.key = keyPool.get("gpt-4");
+	
+	const strippedParams = req.body
+	
+	if (req.key?.key.includes(";")) {
+	
+		const host = req.key.endpoint || ""
+		
+		
+		const newRequest = new HttpRequest({
+		method: "POST",
+		protocol: "https:",
+		hostname: host.replace("https://",""),
+		path: `/openai/deployments/gpt-4-32k/chat/completions?api-version=2023-03-15-preview`,
+		headers: {
+		  ["Host"]: host,
+		  ["Content-Type"]: "application/json",
+		  ["api-key"]: `${req.key.auth}` || "",
+		},
+		body: JSON.stringify(strippedParams),
+	  });
+		
+		
+		req.newRequest = newRequest
+	}
+}
+
+
+// https://api.openai.com
+// 		proxyReq.setHeader('host', assignedKey.endpoint + '/openai/deployments/gpt-4/chat/completions?api-version=2023-03-15-preview');
+const openaiProxy = createQueueMiddleware({
+  beforeProxy: specialCheck,
+  proxyMiddleware: createProxyMiddleware({
+    target: "invalid-target-for-fun",
+	  router: ({ newRequest }) => {
+      if (!newRequest) throw new Error("Must create new request before proxying");
+      return `${newRequest.protocol}//${newRequest.hostname}`;
+    },
     changeOrigin: true,
+	selfHandleResponse: true,
+	logger,
     on: {
       proxyReq: rewriteRequest,
       proxyRes: createOnProxyResHandler([openaiResponseHandler]),
       error: handleProxyError,
     },
-    selfHandleResponse: true,
-    logger,
   })
-);
+  
+});
 
 const openaiRouter = Router();
 // Fix paths because clients don't consistently use the /v1 prefix.
@@ -198,12 +242,15 @@ openaiRouter.use((req, _res, next) => {
   next();
 });
 openaiRouter.get("/v1/models", handleModelRequest);
+
+
 openaiRouter.post(
   "/v1/chat/completions",
   ipLimiter,
   createPreprocessorMiddleware({ inApi: "openai", outApi: "openai" }),
   openaiProxy
 );
+
 
 //openaiRouter.post(
 //  /\/v1\/turbo\-instruct\/(v1\/)?chat\/completions/,

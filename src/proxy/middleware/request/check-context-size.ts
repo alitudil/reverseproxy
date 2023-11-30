@@ -31,6 +31,10 @@ export const checkContextSize: RequestPreprocessor = async (req) => {
       req.outputTokens = req.body.max_tokens_to_sample;
       prompt = req.body.prompt;
       break;
+	case "aws":
+      req.outputTokens = req.body.max_tokens_to_sample;
+      prompt = req.body.prompt;
+      break;  
 	case "palm":
 	  req.outputTokens = 1; // ._. 
       prompt = req.body.prompt;
@@ -85,8 +89,6 @@ function validateContextSize(req: Request) {
     modelMax = 100000;
   } else if (model.match(/claude-(?:instant-)?v1(?:\.\d)?$/)) {
     modelMax = 9000;
-  } else if (model.match(/claude-2\.1/)) {
-    modelMax = 200000;
   } else if (model.match(/claude-2/)) {
     modelMax = 100000;
   } else if (model.match(/text-bison-001-32k/)) {
@@ -98,8 +100,8 @@ function validateContextSize(req: Request) {
   } else {
     // Don't really want to throw here because I don't want to have to update
     // this ASAP every time a new model is released.
-    req.log.warn({ model }, "Unknown model, using 200k token limit.");
-    modelMax = 200000;
+    req.log.warn({ model }, "Unknown model, using 100k token limit.");
+    modelMax = 100000;
   }
 
   const finalMax = Math.min(proxyMax, modelMax);

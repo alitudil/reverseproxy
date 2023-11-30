@@ -127,6 +127,11 @@ function cacheInfoPageHtml(baseUrl: string) {
 		 .replaceAll("{gpt432k:revokedKeys}",(substring: string) => openai_info.gpt4_32k?.revokedKeys?.toString() ?? "0")
 		 .replaceAll("{gpt432k:proomptersInQueue}",(substring: string) => openai_info.gpt4_32k?.proomptersInQueue?.toString() ?? "0")
 		 .replaceAll("{gpt432k:estimatedQueueTime}",(substring: string) => openai_info.gpt4_32k?.estimatedQueueTime?.toString() ?? "Not Available")
+		 .replaceAll("{gpt4_turbo:activeKeys}",(substring: string) => openai_info.gpt4_turbo?.activeKeys?.toString() ?? "0")
+		 .replaceAll("{gpt4_turbo:overQuotaKeys}",(substring: string) => openai_info.gpt4_turbo?.overQuotaKeys?.toString() ?? "0")
+		 .replaceAll("{gpt4_turbo:revokedKeys}",(substring: string) => openai_info.gpt4_turbo?.revokedKeys?.toString() ?? "0")
+		 .replaceAll("{gpt4_turbo:proomptersInQueue}",(substring: string) => openai_info.gpt4_turbo?.proomptersInQueue?.toString() ?? "0")
+		 .replaceAll("{gpt4_turbo:estimatedQueueTime}",(substring: string) => openai_info.gpt4_turbo?.estimatedQueueTime?.toString() ?? "Not Available")
 		 .replaceAll("{globalTokenCount}",(substring: string) => getGlobalTokenCount().toString())
 		 .replaceAll("{openaiTokenCount}",(substring: string) => getOpenaiTokenCount().toString())
 		 .replaceAll("{anthropicTokenCount}",(substring: string) => getClaudeTokenCount().toString())
@@ -227,7 +232,7 @@ function getOpenAIInfo() {
     .filter((k) => k.service === "openai") as OpenAIKey[];
   const hasGpt4 = keys.some((k) => k.isGpt4) && !config.turboOnly;
   const hasGpt432k = keys.some((k) => k.isGpt432k) && !config.turboOnly;
-
+  const hasGpt4Turbo = keys.some((k) => k.isGpt4Turbo) && !config.turboOnly;
 
   if (keyPool.anyUnchecked()) {
     const uncheckedKeys = keys.filter((k) => !k.lastChecked);
@@ -241,7 +246,7 @@ function getOpenAIInfo() {
     const turboKeys = keys.filter((k) => !k.isGpt4 && !k.isGpt432k);
     const gpt4Keys = keys.filter((k) => k.isGpt4);
 	const gpt432kKeys = keys.filter((k) => k.isGpt432k);
-	
+	const gpt4turboKeys = keys.filter((k) => k.isGpt4Turbo);
 
     const quota: Record<string, string> = { turbo: "", gpt4: "" };
     const turboQuota = keyPool.activeLimitInUsd("openai");
@@ -280,6 +285,15 @@ function getOpenAIInfo() {
       };
 		
 	}
+	
+	if (hasGpt4Turbo) {
+		info.gpt4_turbo = {
+        activeKeys: gpt4turboKeys.filter((k) => !k.isDisabled).length,
+        revokedKeys: gpt4turboKeys.filter((k) => k.isRevoked).length,
+        overQuotaKeys: gpt4turboKeys.filter((k) => k.isOverQuota).length,
+      };
+		
+	}
 
     if (config.quotaDisplayMode === "none") {
       // delete info.turbo?.activeLimit;
@@ -294,6 +308,10 @@ function getOpenAIInfo() {
 	
 	info.gpt4_32k = {
       activeKeys: keys.filter((k) => !k.isDisabled && k.isGpt432k).length,
+    };
+	
+	info.gpt4_turbo = {
+      activeKeys: keys.filter((k) => !k.isDisabled && k.isGpt4Turbo).length,
     };
 	
   }
@@ -314,6 +332,12 @@ function getOpenAIInfo() {
       const gpt432kQueue = getQueueInformation("gpt-4-32k");
       info.gpt4_32k.proomptersInQueue = gpt432kQueue.proomptersInQueue;
       info.gpt4_32k.estimatedQueueTime = gpt432kQueue.estimatedQueueTime;
+    }
+	
+	if (hasGpt4Turbo) {
+      const gpt4turboQueue = getQueueInformation("gpt-4-turbo");
+      info.gpt4_turbo.proomptersInQueue = gpt4turboQueue.proomptersInQueue;
+      info.gpt4_turbo.estimatedQueueTime = gpt4turboQueue.estimatedQueueTime;
     }
 	
   }

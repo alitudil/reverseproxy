@@ -134,8 +134,11 @@ function updateStats(prov) {
 <% let currentProvider = "None"; %>
 <% let countRevoked = 0; %>
 <% let countRevokedAnthropic = 0; %>
+<% let countAnthropic = 0; %>
 <% let countRevokedAi21 = 0; %>
+<% let countAi21 = 0; %>
 <% let countRevokedPalm = 0; %>
+<% let countPalm = 0; %>
 <% let countOverQuota = 0; %>
 <% let countUniqueOrgs = 0; %>
 <% let countGpt4 = 0; %>
@@ -168,15 +171,24 @@ function updateStats(prov) {
 	  <% if (key.isRevoked) { %>
 		<% countRevokedAnthropic++; %>
 	  <% } %>
+	  <% if (key.isRevoked == false && key.isDisabled == false) { %>
+		<% countAnthropic++; %>
+	  <% } %>
   <% } %>
   <% if (key.hash.includes("ai21-")) { %>
 	  <% if (key.isRevoked) { %>
 		<% countRevokedAi21++; %>
 	  <% } %>
+	  <% if (key.isRevoked == false) { %>
+		<% countAi21++; %>
+	  <% } %>
   <% } %>
-  <% if (key.hash.includes("plm-")) { %>
+  <% if (key.hash.includes("palm-")) { %>
 	  <% if (key.isRevoked) { %>
 		<% countRevokedPalm++; %>
+	  <% } %>
+	  <% if (key.isRevoked == false) { %>
+		<% countPalm++; %>
 	  <% } %>
   <% } %>
   
@@ -194,11 +206,16 @@ function updateStats(prov) {
 <hr>
 <center>
 <div class="tabs">
-	<button class="tabkey" onclick="chooseKeyProvider(event, 'OpenAI')">OpenAI</button>
+	<button class="tabkey" id="init" onclick="chooseKeyProvider(event, 'OpenAI')">OpenAI</button>
 	<button class="tabkey" onclick="chooseKeyProvider(event, 'Anthropic')">Anthropic</button>
 	<button class="tabkey" onclick="chooseKeyProvider(event, 'Google Palm')">Google Palm</button>
 	<button class="tabkey" onclick="chooseKeyProvider(event, 'AI21')">AI21</button>
 </div>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+document.getElementById("init").click();
+});
+</script>
 </center>
 <hr>
 <center><h2>Filtering</h2></center>
@@ -246,6 +263,7 @@ Number of Unique Organization Keys: <span style="color: <%= countUniqueOrgs > 0 
 </div>
 <div id="statsAnthropic" hidden>
 <center>
+Number of active keys: <span style="color: <%= countAnthropic > 0 ? 'green' : 'red' %>"><%= countAnthropic %></span>
 Number of pozzed keys: <span style="color: <%= countPozzed > 0 ? 'green' : 'red' %>"><%= countPozzed %></span><br>
 Number of revoked keys: <span style="color: <%= countRevokedAnthropic > 0 ? 'green' : 'red' %>"><%= countRevokedAnthropic %></span>
 
@@ -253,11 +271,13 @@ Number of revoked keys: <span style="color: <%= countRevokedAnthropic > 0 ? 'gre
 </div>
 <div id="statsPalm" hidden>
 <center>
+Number of active keys: <span style="color: <%= countPalm > 0 ? 'green' : 'red' %>"><%= countPalm %></span>
 Number of revoked keys: <span style="color: <%= countRevokedPalm > 0 ? 'green' : 'red' %>"><%= countRevokedPalm %></span>
 </center>
 </div>
 <div id="statsAi21" hidden>
 <center>
+Number of active keys: <span style="color: <%= countAi21 > 0 ? 'green' : 'red' %>"><%= countAi21 %></span>
 Number of revoked keys: <span style="color: <%= countRevokedAi21 > 0 ? 'green' : 'red' %>"><%= countRevokedAi21 %></span>
 </center>
 </div>
@@ -419,7 +439,7 @@ Number of revoked keys: <span style="color: <%= countRevokedAi21 > 0 ? 'green' :
     </thead>
     <tbody>
       <% keys.forEach(function(key) { %>
-	    <% if (key.hash.includes("plm-")) { %>
+	    <% if (key.hash.includes("palm-")) { %>
         <tr>
           <td>
             <code><a href="/admin/manage/view-key/<%= key.hash %>"><%= key.hash %></a></code>

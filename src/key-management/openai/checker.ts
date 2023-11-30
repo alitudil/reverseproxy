@@ -1,4 +1,4 @@
-import axios, { AxiosError } from "axios";
+import axios, { AxiosError, AxiosRequestConfig  } from "axios";
 import { logger } from "../../logger";
 import type { OpenAIKey, OpenAIKeyProvider } from "./provider";
 import crypto from "crypto";
@@ -20,6 +20,10 @@ const GET_ORGANIZATION_URL =
   
 type GetModelsResponse = {
   data: [{ id: string }];
+};
+
+type GetModelsResponsev2 = {
+  error: { code: string };
 };
 
 type GetSubscriptionResponse = {
@@ -148,36 +152,45 @@ export class OpenAIKeyChecker {
       max_tokens: -1,
       messages: [{ role: "user", content: "" }],
     };
-    const { headers, data } = await axios.post<OpenAIError>(
-      POST_CHAT_COMPLETIONS_URL,
-      payload,
-      {
-        headers: {
-			Authorization: `Bearer ${key.key}`,
-			...(key.org !== 'default' ? { 'OpenAI-Organization': key.org } : {})
-    },
-        validateStatus: (status) => status === 400,
-      }
-    );
-
-    let orgName = headers["openai-organization"];
 	
-	if (orgName.match("user") || orgName.match("personal")) {
-		orgName = "default"
+	if (!key.key.includes(";")) {
+		const { headers, data } = await axios.post<OpenAIError>(
+		  POST_CHAT_COMPLETIONS_URL,
+		  payload,
+		  {
+			headers: {
+				Authorization: `Bearer ${key.key}`,
+				...(key.org !== 'default' ? { 'OpenAI-Organization': key.org } : {})
+		},
+			validateStatus: (status) => status === 400,
+		  }
+		);
+
+		let orgName = headers["openai-organization"];
+		
+		if (orgName.match("user") || orgName.match("personal")) {
+			orgName = "default"
+		}
+		
+		const updates = {
+		  org: orgName,
+		};
+		this.updateKey(key.hash, updates);
+
+		// invalid_request_error is the expected error
+		if (data.error.type !== "invalid_request_error") {
+		  this.log.warn(
+			{ key: key.hash, error: data },
+			"Unexpected 400 error class while checking key; assuming key is valid, but this may indicate a change in the API."
+		  );
+		} 
+	} else {
+		const updates = {
+		  org: "default",
+		};
+		this.updateKey(key.hash, updates);
+		
 	}
-	
-	const updates = {
-	  org: orgName,
-	};
-	this.updateKey(key.hash, updates);
-
-    // invalid_request_error is the expected error
-    if (data.error.type !== "invalid_request_error") {
-      this.log.warn(
-        { key: key.hash, error: data },
-        "Unexpected 400 error class while checking key; assuming key is valid, but this may indicate a change in the API."
-      );
-    } 
   }
 
   private async checkKey(key: OpenAIKey) {
@@ -209,6 +222,9 @@ export class OpenAIKeyChecker {
 		
         const updates = {
           isGpt4: provisionedModels.gpt4,
+		  isGpt432k: provisionedModels.gpt432k,
+		  isGpt4Turbo: provisionedModels.gpt4turbo,
+		  specialMap: provisionedModels.specialMap,
           // softLimit: subscription.soft_limit_usd,
           // hardLimit: subscription.hard_limit_usd,
           // systemHardLimit: subscription.system_hard_limit_usd,
@@ -254,13 +270,69 @@ export class OpenAIKeyChecker {
 
   private async getProvisionedModels(
     key: OpenAIKey
-  ): Promise<{ turbo: boolean; gpt4: boolean; gpt432k: boolean }> {
-    const opts = { headers: { Authorization: `Bearer ${key.key}`,  } };
-    const { data } = await axios.get<GetModelsResponse>(GET_MODELS_URL, opts);
-    const models = data.data;
-    const turbo = models.some(({ id }) => id.startsWith("gpt-3.5"));
-    const gpt4 = models.some(({ id }) => id.startsWith("gpt-4"));
-	const gpt432k = models.some(({ id }) => id.startsWith("gpt-4-32k"));
+  ): Promise<{ turbo: boolean; gpt4: boolean; gpt432k: boolean; gpt4turbo: boolean; specialMap: { [key: string]: string }} > {
+	
+	if (key.key.includes(";") == true){
+		key.isSpecial = true;
+		key.auth = key.key.split(";")[1]
+		key.endpoint = key.key.split(";")[0]
+	} 
+
+	let opts = {}
+	if (key.key.includes(";") == false) {
+		opts = { headers: { Authorization: `Bearer ${key.key}`, } };
+	} else {
+		opts = { headers: { 'api-key': `${key.auth}`, 'Content-Type': 'application/json'} };
+	}
+
+	
+	let turbo = false;
+	let gpt4 = false;
+	let gpt432k = false;
+	let gpt4turbo = false;
+	const specialMap: { [key: string]: string } = {};
+
+	if (key.key.includes(";") == false) {
+		
+		let { data } = await axios.post<GetModelsResponse>(GET_MODELS_URL, opts);
+		let models = data.data;
+		turbo = models.some(({ id }) => id.startsWith("gpt-3.5"));
+		gpt4 = models.some(({ id }) => id.startsWith("gpt-4"));
+		gpt432k = models.some(({ id }) => id.startsWith("gpt-4-32k"));
+		gpt4turbo = models.some(({ id }) => id.startsWith("gpt-4-1106"));
+	} else {
+		let data = {}
+		const headers: AxiosRequestConfig['headers'] = {
+		   'User-Agent': 'OpenAI/v1 PythonBindings/0.28.0', 
+		  'Content-Type': 'application/json',
+		  'api-key': key.auth,
+		};
+		
+		try {
+			const response = await axios.get(key.endpoint+"/openai/deployments?api-version=2023-03-15-preview", {headers});
+			for (const index in response.data.data) {
+				if (response.data.data[index].status == "succeeded") {
+					specialMap[response.data.data[index].model] = response.data.data[index].id
+					if (response.data.data[index].model == "gpt-4") {
+						gpt4 = true 
+					} else if (response.data.data[index].model == "gpt-4-32k") {
+						gpt432k = true 
+					} else if (response.data.data[index].model == "gpt-4-1106-preview") {
+						gpt4turbo = true 
+					}  else if (response.data.data[index].model.includes("gpt-3") == true) {
+						turbo = true 
+					}
+					
+					
+				}
+			}
+		} catch(e){ 
+			// console.log(e);
+			// Invalid endpoint 	
+		}
+
+	
+	}
 	
     // We want to update the key's `isGpt4` flag here, but we don't want to
     // update its `lastChecked` timestamp because we need to let the liveness
@@ -271,9 +343,13 @@ export class OpenAIKeyChecker {
     this.updateKey(key.hash, {
       isGpt4: gpt4,
 	  isGpt432k: gpt432k,
+	  isGpt4Turbo: gpt4turbo,
+	  isSpecial: key.isSpecial,
+	  endpoint: key.endpoint,
+	  auth: key.auth,
       lastChecked: keyFromPool.lastChecked,
     });
-    return { turbo, gpt4, gpt432k };
+    return { turbo, gpt4, gpt432k, gpt4turbo, specialMap };
   }
   
   
@@ -296,16 +372,18 @@ export class OpenAIKeyChecker {
   private handleAxiosError(key: OpenAIKey, error: AxiosError) {
     if (error.response && OpenAIKeyChecker.errorIsOpenAIError(error)) {
       const { status, data } = error.response;
-      if (status === 401) {
-        this.log.warn(
-          { key: key.hash, error: data },
-          "Key is invalid or revoked. Disabling key."
-        );
-        this.updateKey(key.hash, {
-          isDisabled: true,
-          isRevoked: true,
-          isGpt4: false,
-        });
+		  if (status === 401) {
+			if (key.key.includes(";") == false) {
+			this.log.warn(
+			  { key: key.hash, error: data },
+			  "Key is invalid or revoked. Disabling key."
+			);
+			this.updateKey(key.hash, {
+			  isDisabled: true,
+			  isRevoked: true,
+			  isGpt4: false,
+			});
+		}
       } else if (status === 429) {
         switch (data.error.type) {
           case "insufficient_quota":
@@ -389,84 +467,91 @@ export class OpenAIKeyChecker {
    */
    
   public async getExtraKeys(key: OpenAIKey) {
-    const { data } = await axios.get(
-      GET_ORGANIZATION_URL,
-      {
-        headers: { Authorization: `Bearer ${key.key}` }
-      }
-    );
-	if (Array.isArray(data.data)) {
-		await data.data.forEach((item: any) => {
-			if (item["is_default"] == false) {
-				let orgName = item["name"]
-				if (orgName.match("user") || orgName.match("personal")) {
-					orgName = "default"
+	if (key.key.includes(";") == false) {
+		const { data } = await axios.get(
+		  GET_ORGANIZATION_URL,
+		  {
+			headers: { Authorization: `Bearer ${key.key}` }
+		  }
+		);
+		if (Array.isArray(data.data)) {
+			await data.data.forEach((item: any) => {
+				if (item["is_default"] == false) {
+					let orgName = item["name"]
+					if (orgName.match("user") || orgName.match("personal")) {
+						orgName = "default"
+					}
+					
+					this.createKey({
+						key: key.key,
+						org: orgName, 
+						service: "openai" as const,
+						isGpt4: true,
+						isGpt432k: false,
+						isTrial: false,
+						isDisabled: false,
+						isRevoked: false,
+						isOverQuota: false,
+						softLimit: 0,
+						hardLimit: 0,
+						systemHardLimit: 0,
+						usage: 0,
+						lastUsed: 0,
+						lastChecked: 0,
+						promptCount: 0,
+						// Changing hash to uid sorry but annoying to work with if one key can have multiple profiles 
+						hash: `oai-${crypto
+						  .createHash("sha256")
+						  .update(key.key)
+						  .digest("hex")+"-org"}`,
+						rateLimitedAt: 0,
+						rateLimitRequestsReset: 0,
+						rateLimitTokensReset: 0,
+					  });
 				}
-				
-			    this.createKey({
-					key: key.key,
-					org: orgName, 
-					service: "openai" as const,
-					isGpt4: true,
-					isGpt432k: false,
-					isTrial: false,
-					isDisabled: false,
-					isRevoked: false,
-					isOverQuota: false,
-					softLimit: 0,
-					hardLimit: 0,
-					systemHardLimit: 0,
-					usage: 0,
-					lastUsed: 0,
-					lastChecked: 0,
-					promptCount: 0,
-					// Changing hash to uid sorry but annoying to work with if one key can have multiple profiles 
-					hash: `oai-${crypto
-					  .createHash("sha256")
-					  .update(key.key)
-					  .digest("hex")+"-org"}`,
-					rateLimitedAt: 0,
-					rateLimitRequestsReset: 0,
-					rateLimitTokensReset: 0,
-				  });
-			}
-		})
-	} 
+			})
+		} 
+	}
     return true;
   }
   
 
    
   private async testLiveness(key: OpenAIKey): Promise<{ rateLimit: number }> {
-    const payload = {
-      model: "gpt-3.5-turbo",
-      max_tokens: -1,
-      messages: [{ role: "user", content: "" }],
-    };
-    const { headers, data } = await axios.post<OpenAIError>(
-      POST_CHAT_COMPLETIONS_URL,
-      payload,
-      {
-        headers: {
-			Authorization: `Bearer ${key.key}`,
-			...(key.org !== 'default' ? { 'OpenAI-Organization': key.org } : {})
-    },
-        validateStatus: (status) => status === 400,
-      }
-    );
-	
-	
-    const rateLimitHeader = headers["x-ratelimit-limit-requests"];
-    const rateLimit = parseInt(rateLimitHeader) || 3500; // trials have 200
+	if (!key.key.includes(";")) {
+		const payload = {
+		  model: "gpt-3.5-turbo",
+		  max_tokens: -1,
+		  messages: [{ role: "user", content: "" }],
+		};
+		const { headers, data } = await axios.post<OpenAIError>(
+		  POST_CHAT_COMPLETIONS_URL,
+		  payload,
+		  {
+			headers: {
+				Authorization: `Bearer ${key.key}`,
+				...(key.org !== 'default' ? { 'OpenAI-Organization': key.org } : {})
+		},
+			validateStatus: (status) => status === 400,
+		  }
+		);
+		
+		
+		const rateLimitHeader = headers["x-ratelimit-limit-requests"];
+		const rateLimit = parseInt(rateLimitHeader) || 3500; // trials have 200
 
-    // invalid_request_error is the expected error
-    if (data.error.type !== "invalid_request_error") {
-      this.log.warn(
-        { key: key.hash, error: data },
-        "Unexpected 400 error class while checking key; assuming key is valid, but this may indicate a change in the API."
-      );
-    }
-    return { rateLimit };
+		// invalid_request_error is the expected error
+		if (data.error.type !== "invalid_request_error") {
+		  this.log.warn(
+			{ key: key.hash, error: data },
+			"Unexpected 400 error class while checking key; assuming key is valid, but this may indicate a change in the API."
+		  );
+		}
+		return { rateLimit };
+	} else {
+		const rateLimit = 500;
+		return { rateLimit }
+	}
   }
 
   static errorIsOpenAIError(

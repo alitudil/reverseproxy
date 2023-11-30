@@ -1,6 +1,8 @@
 import { Express } from "express-serve-static-core";
 import { AIService, Key } from "../key-management/index";
 import { User } from "../proxy/auth/user-store";
+import type { HttpRequest } from "@smithy/types";
+
 
 declare global {
   namespace Express {
@@ -24,6 +26,7 @@ declare global {
       outputTokens?: number;
       // TODO: remove later
       debug: Record<string, any>;
+	  newRequest: HttpRequest;
     }
   }
 }

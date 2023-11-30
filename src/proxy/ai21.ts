@@ -149,8 +149,8 @@ function transformAi21Response(
   };
 }
 
-const ai21Proxy = createQueueMiddleware(
-  createProxyMiddleware({
+const ai21Proxy = createQueueMiddleware({
+  proxyMiddleware: createProxyMiddleware({
     target: "https://api.ai21.com/studio/v1/j2-ultra/complete",
     changeOrigin: true,
     on: {
@@ -164,7 +164,7 @@ const ai21Proxy = createQueueMiddleware(
 	  '^/proxy/ai21/chat/completions': '', 
 	  }
   })
-);
+});
 
 const ai21Router = Router();
 // Fix paths because clients don't consistently use the /v1 prefix.

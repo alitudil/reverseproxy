@@ -11,7 +11,7 @@ import { config } from "../../config";
 import { logger } from "../../logger";
 import { OpenAIKeyChecker } from "./checker";
 
-export type OpenAIModel = "gpt-3.5-turbo" | "gpt-4" | "gpt-4-32k";
+export type OpenAIModel = "gpt-3.5-turbo" | "gpt-4" | "gpt-4-32k" | "gpt-4-turbo";
 export const OPENAI_SUPPORTED_MODELS: readonly OpenAIModel[] = [
   "gpt-3.5-turbo",
   "gpt-4",
@@ -87,6 +87,7 @@ export class OpenAIKeyProvider implements KeyProvider<OpenAIKey> {
         isDisabled: false,
         isRevoked: false,
         isOverQuota: false,
+		isSpecial: false,
         softLimit: 0,
         hardLimit: 0,
         systemHardLimit: 0,
@@ -129,10 +130,12 @@ export class OpenAIKeyProvider implements KeyProvider<OpenAIKey> {
         service: "openai" as const,
         isGpt4: true,
 		isGpt432k: false,
+		isGpt4Turbo: false,
         isTrial: false,
         isDisabled: false,
         isRevoked: false,
         isOverQuota: false,
+		isSpecial: false,
         softLimit: 0,
         hardLimit: 0,
         systemHardLimit: 0,
@@ -148,6 +151,7 @@ export class OpenAIKeyProvider implements KeyProvider<OpenAIKey> {
         rateLimitRequestsReset: 0,
         rateLimitTokensReset: 0,
 		organizations: {},
+		specialMap: {},
       };
       this.keys.push(newKey);
 	  return true 
@@ -194,26 +198,41 @@ export class OpenAIKeyProvider implements KeyProvider<OpenAIKey> {
     const needGpt4 = model.startsWith("gpt-4");
 	const needGpt432k = model.startsWith("gpt-4-32k");
 	
+	
+	let isSpecialSelected = false; 
+	
     let availableKeys = this.keys.filter(
-		  (key) => !key.isDisabled && (!needGpt4 || key.isGpt4)
+		  (key) => !key.isDisabled && (!needGpt4 || key.isGpt4) && !key.isSpecial
 		);
+	let availableSpecialKeys = this.keys.filter(
+		  (key) => !key.isDisabled && (!needGpt4 || key.isGpt4) && key.isSpecial
+		);
+	
 	
 	if (needGpt4 && needGpt432k == false) {
 		if (availableKeys.length === 0) {
-		  let message = needGpt4
-			? "No GPT-4 keys available.  Try selecting a Turbo model."
-			: "No active OpenAI keys available.";
-		  throw new Error(message);
+		  if (availableSpecialKeys.length !== 0) {
+			  isSpecialSelected = true;
+		  } else {
+			  let message = needGpt4
+				? "No GPT-4 keys available.  Try selecting a Turbo model."
+				: "No active OpenAI keys available.";
+			  throw new Error(message);
+		  }
 		}
 	} else if (needGpt432k) {
 		availableKeys = this.keys.filter(
 		  (key) => !key.isDisabled && (!needGpt432k || key.isGpt432k)
 		);
 		if (availableKeys.length === 0) {
-		  let message = needGpt432k
-			? "No GPT-4-32K keys available.  Try selecting a Gpt-4 model."
-			: "No active OpenAI keys available.";
-		  throw new Error(message);
+	       if (availableSpecialKeys.length !== 0) {
+			  isSpecialSelected = true;
+		   } else {
+			  let message = needGpt432k
+				? "No GPT-4-32K keys available.  Try selecting a Gpt-4 model."
+				: "No active OpenAI keys available.";
+			  throw new Error(message);
+		   }
 		}
 	}
 
@@ -233,24 +252,80 @@ export class OpenAIKeyProvider implements KeyProvider<OpenAIKey> {
 
     const now = Date.now();
     const rateLimitThreshold = 60 * 1000;
+	
+	let selectedKey = undefined; 
+	let keysByPriority = undefined;
+	
+	if (isSpecialSelected == false) {
+		keysByPriority = availableKeys.sort((a, b) => {
+		  const aRateLimited = now - a.rateLimitedAt < rateLimitThreshold;
+		  const bRateLimited = now - b.rateLimitedAt < rateLimitThreshold;
 
-    const keysByPriority = availableKeys.sort((a, b) => {
-      const aRateLimited = now - a.rateLimitedAt < rateLimitThreshold;
-      const bRateLimited = now - b.rateLimitedAt < rateLimitThreshold;
+		  if (aRateLimited && !bRateLimited) return 1;
+		  if (!aRateLimited && bRateLimited) return -1;
+		  if (aRateLimited && bRateLimited) {
+			return a.rateLimitedAt - b.rateLimitedAt;
+		  }
 
-      if (aRateLimited && !bRateLimited) return 1;
-      if (!aRateLimited && bRateLimited) return -1;
-      if (aRateLimited && bRateLimited) {
-        return a.rateLimitedAt - b.rateLimitedAt;
-      }
+		  if (a.isTrial && !b.isTrial) return -1;
+		  if (!a.isTrial && b.isTrial) return 1;
 
-      if (a.isTrial && !b.isTrial) return -1;
-      if (!a.isTrial && b.isTrial) return 1;
+		  return a.lastUsed - b.lastUsed;
+		});
+	} else {
+		keysByPriority = availableSpecialKeys.sort((a, b) => {
+		  const aRateLimited = now - a.rateLimitedAt < rateLimitThreshold;
+		  const bRateLimited = now - b.rateLimitedAt < rateLimitThreshold;
 
-      return a.lastUsed - b.lastUsed;
-    });
+		  if (aRateLimited && !bRateLimited) return 1;
+		  if (!aRateLimited && bRateLimited) return -1;
+		  if (aRateLimited && bRateLimited) {
+			return a.rateLimitedAt - b.rateLimitedAt;
+		  }
 
-    const selectedKey = keysByPriority[0];
+		  if (a.isTrial && !b.isTrial) return -1;
+		  if (!a.isTrial && b.isTrial) return 1;
+
+		  return a.lastUsed - b.lastUsed;
+		});
+	}
+	if (keysByPriority == undefined) {
+		let message = needGpt4
+		  ? "Idk how did you trigger that"
+		  : "Congrats lol";
+		throw new Error(message);
+	}
+	
+	if (isSpecialSelected == true) {
+		// make sure the model is avaliable 
+		for (const testkey in keysByPriority) {
+			 let testKeyNow = keysByPriority[testkey]
+			 if (testKeyNow.specialMap !== undefined) {
+				if (testKeyNow.specialMap.hasOwnProperty(model)) {
+					selectedKey = testKeyNow;
+					break;
+				}
+			}
+		}
+	} else {
+		selectedKey = keysByPriority[0];
+	}
+	
+	if (selectedKey == undefined) {
+		if (needGpt432k) {
+			let message = needGpt4
+			  ? `No ${model} keys available.  Try selecting a GPT-4 model.`
+			  : "No active OpenAI keys available.";
+			throw new Error(message);
+		} else {
+			let message = needGpt4
+			  ? `No ${model} keys available. Try selecting a Turbo model.`
+			  : "No active OpenAI keys available.";
+			throw new Error(message);
+		}	
+	}
+	
+	
     selectedKey.lastUsed = now;
 
     // When a key is selected, we rate-limit it for a brief period of time to
@@ -380,35 +455,33 @@ export class OpenAIKeyProvider implements KeyProvider<OpenAIKey> {
 
   public updateRateLimits(keyHash: string, headers: http.IncomingHttpHeaders) {
     const key = this.keys.find((k) => k.hash === keyHash)!;
-    const requestsReset = headers["x-ratelimit-reset-requests"];
-    const tokensReset = headers["x-ratelimit-reset-tokens"];
+	if (!key.key.includes(";")) {
+		const requestsReset = headers["x-ratelimit-reset-requests"];
+		const tokensReset = headers["x-ratelimit-reset-tokens"];
 
-    // Sometimes OpenAI only sends one of the two rate limit headers, it's
-    // unclear why.
-
-    if (requestsReset && typeof requestsReset === "string") {
-      this.log.info(
-        { key: key.hash, requestsReset },
-        `Updating rate limit requests reset time`
-      );
-      key.rateLimitRequestsReset = getResetDurationMillis(requestsReset);
-    }
-
-    if (tokensReset && typeof tokensReset === "string") {
-      this.log.info(
-        { key: key.hash, tokensReset },
-        `Updating rate limit tokens reset time`
-      );
-      key.rateLimitTokensReset = getResetDurationMillis(tokensReset);
-    }
-
-    if (!requestsReset && !tokensReset) {
-      this.log.warn(
-        { key: key.hash },
-        `No rate limit headers in OpenAI response; skipping update`
-      );
-      return;
-    }
+		if (requestsReset && typeof requestsReset === "string") {
+		  this.log.info(
+			{ key: key.hash, requestsReset },
+			`Updating rate limit requests reset time`
+		  );
+		  key.rateLimitRequestsReset = getResetDurationMillis(requestsReset);
+		}
+		if (tokensReset && typeof tokensReset === "string") {
+		  this.log.info(
+			{ key: key.hash, tokensReset },
+			`Updating rate limit tokens reset time`
+		  );
+		  key.rateLimitTokensReset = getResetDurationMillis(tokensReset);
+		}
+		if (!requestsReset && !tokensReset) {
+		  this.log.warn(
+			{ key: key.hash },
+			`No rate limit headers in OpenAI response; skipping update`
+		  );
+		  return;
+		}
+	}
+	return
   }
 
   /**

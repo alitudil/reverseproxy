@@ -38,6 +38,7 @@ type TokenCountRequest = {
   req: Request;
 } & (
   | { prompt: string; service: "anthropic" }
+  | { prompt: string; service: "aws" }
   | { prompt: string; service: "palm" }
   | { prompt: string; service: "ai21" }
   | { prompt: OpenAIPromptMessage[]; service: "openai" }
@@ -51,6 +52,11 @@ export async function countTokens({
   const time = process.hrtime();
   switch (service) {
     case "anthropic":
+      return {
+        ...getClaudeTokenCount(prompt),
+        tokenization_duration_ms: getElapsedMs(time),
+      };
+	case "aws":
       return {
         ...getClaudeTokenCount(prompt),
         tokenization_duration_ms: getElapsedMs(time),
