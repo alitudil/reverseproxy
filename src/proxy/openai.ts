@@ -183,7 +183,7 @@ const SPECIAL_HOST =
 
 
 export const specialCheck: RequestPreprocessor = async (req) => {
-	req.key = keyPool.get(req.model);
+	req.key = keyPool.get("gpt-4");
 	
 	const strippedParams = req.body
 	
@@ -204,8 +204,7 @@ export const specialCheck: RequestPreprocessor = async (req) => {
 		},
 		body: JSON.stringify(strippedParams),
 	  });
-		
-		
+	  req.newRequest = newRequest
 	} else {
     const newRequest = new HttpRequest({
       method: "POST",
@@ -213,8 +212,11 @@ export const specialCheck: RequestPreprocessor = async (req) => {
       hostname: "api.openai.com",
       path: `/v1/chat/completions`,
     }) 
+	req.newRequest = newRequest
   }
-
+	
+	
+	
 }
 
 
