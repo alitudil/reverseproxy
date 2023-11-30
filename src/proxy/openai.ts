@@ -183,7 +183,7 @@ const SPECIAL_HOST =
 
 
 export const specialCheck: RequestPreprocessor = async (req) => {
-	req.key = keyPool.get("gpt-4");
+	req.key = keyPool.get(req.body.model);
 	
 	const strippedParams = req.body
 	
