@@ -293,8 +293,7 @@ export class OpenAIKeyChecker {
 	const specialMap: { [key: string]: string } = {};
 
 	if (key.key.includes(";") == false) {
-		
-		let { data } = await axios.post<GetModelsResponse>(GET_MODELS_URL, opts);
+		let { data } = await axios.get<GetModelsResponse>(GET_MODELS_URL, opts);
 		let models = data.data;
 		turbo = models.some(({ id }) => id.startsWith("gpt-3.5"));
 		gpt4 = models.some(({ id }) => id.startsWith("gpt-4"));
