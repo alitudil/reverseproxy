@@ -11,12 +11,10 @@ export const finalizeBody: ProxyRequestMiddleware = (proxyReq, req) => {
 		const { stream, ...bodyWithoutStream } = JSON.parse(updatedBody);
 		updatedBody = JSON.stringify(bodyWithoutStream);
 		let googleRequestURL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent`;
-		console.log(req.body)
 		if (req.body.model === "text-bison-001") {
 			googleRequestURL = `https://generativelanguage.googleapis.com/v1beta/models/text-bison-001:generateContent`;
 		}
 		proxyReq.path = new URL(googleRequestURL).pathname + new URL(googleRequestURL).search;
-		console.log(proxyReq.path)
 	}
 	
 	

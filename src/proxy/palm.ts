@@ -129,7 +129,6 @@ const palmResponseHandler: ProxyResHandlerWithBody = async (
 function transformPalmResponse(
   palmBody: Record<string, any>
 ): Record<string, any> {
-  console.log(palmBody.candidates[0]?.content || "");
   const output = (palmBody.candidates[0]?.content.parts[0]?.text || "Unknown fucking error occured report to fucking drago...")?.trim();
   return {
     id: "palm-" + palmBody.log_id,

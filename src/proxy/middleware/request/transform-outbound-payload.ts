@@ -305,8 +305,7 @@ async function openaiToPalm(body: any, req: Request) {
   }
   
   const { messages, ...rest } = result.data;
-  
-  console.log(messages);
+    // Need to add squash for user messages also :) 
 	const contents = messages.reduce<SquashedMessage[]>((acc, curr) => {
 	  const textContent = flattenOpenAIMessageContent(curr.content);
 
@@ -342,8 +341,6 @@ async function openaiToPalm(body: any, req: Request) {
 			role: 'user',
 		});
 	}
-
-  console.log(contents);
   
   let stops = rest.stop
     ? Array.isArray(rest.stop)
@@ -371,10 +368,10 @@ async function openaiToPalm(body: any, req: Request) {
       temperature: rest.temperature,
     },
     safetySettings: [
-      { category: "HARM_CATEGORY_HATE_SPEECH", threshold: "BLOCK_ONLY_HIGH" },
-      { category: "HARM_CATEGORY_SEXUALLY_EXPLICIT", threshold: "BLOCK_ONLY_HIGH" }, 
-      { category: "HARM_CATEGORY_DANGEROUS_CONTENT", threshold: "BLOCK_ONLY_HIGH" },
-      { category: "HARM_CATEGORY_HARASSMENT", threshold: "BLOCK_ONLY_HIGH" }
+      { category: "HARM_CATEGORY_HATE_SPEECH", threshold: "BLOCK_NONE" },
+      { category: "HARM_CATEGORY_SEXUALLY_EXPLICIT", threshold: "BLOCK_NONE" }, 
+      { category: "HARM_CATEGORY_DANGEROUS_CONTENT", threshold: "BLOCK_NONE" },
+      { category: "HARM_CATEGORY_HARASSMENT", threshold: "BLOCK_NONE" }
     ],
   };
 }
