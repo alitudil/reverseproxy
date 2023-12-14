@@ -221,7 +221,7 @@ const getPromptForRequest = (req: Request): string | OaiMessage[] => {
     return req.body.prompt;
   } 
   if (req.outboundApi === "palm") {
-    return req.body.candidates[0];
+    return req.body.candidates[0]?.content.parts;
   } 
   if (req.outboundApi === "ai21") {
     return req.body.completions[0].data.text;
@@ -239,7 +239,7 @@ const getResponseForService = ({
   if (service === "anthropic") {
     return { completion: body.completion.trim(), model: body.model };
   } else if (service === "palm") {
-	return { completion: (body.candidates[0]?.output ?? body.candidates.output), model: body.model };
+	return { completion: (body.candidates[0]?.content.parts[0]?.text ?? "Report to drago :|"), model: body.model };
   } else if (service === "ai21") {
 	return { completion: body.completions[0].data.text, model: body.model };
   }else {
