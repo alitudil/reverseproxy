@@ -121,7 +121,7 @@ export class PalmKeyProvider implements KeyProvider<PalmKey> {
   // change any > propper type 
   // Unfuck this whole file change palm > google 
   private async checkValidity(key: any) {
-	  const payload =  {"prompt": {"text": "test"}} // Simple Prompt to check validity of request 
+	  const payload =  {"contents": [{"role": "user","parts": { "text": "test" }}]} // Simple Prompt to check validity of request 
 	  try{
 		const response = await axios.post(
 			'https://generativelanguage.googleapis.com/v1/models/gemini-pro:generateContent', payload, { headers: { 'content-type': 'application/json', 'x-goog-api-key': key.key } }
