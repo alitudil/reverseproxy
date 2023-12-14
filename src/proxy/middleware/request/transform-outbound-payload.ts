@@ -282,17 +282,38 @@ function openaiToOpenaiText(req: Request) {
   return validated;
 }
 
+const GoogleAIV1GenerateContentSchema = z.object({
+  model: z.string(), //actually specified in path but we need it for the router
+  stream: z.boolean().optional().default(false), // also used for router
+  contents: z.array(
+    z.object({
+      parts: z.array(z.object({ text: z.string() })),
+      role: z.enum(["user", "model"]),
+    })
+  ),
+  tools: z.array(z.object({})).max(0).optional(),
+  safetySettings: z.array(z.object({})).max(0).optional(),
+  generationConfig: z.object({
+    temperature: z.number().optional(),
+    maxOutputTokens: z.coerce
+      .number()
+      .int()
+      .optional()
+      .default(16)
+      .transform((v) => Math.min(v, 1024)), // TODO: Add config
+    candidateCount: z.literal(1).optional(),
+    topP: z.number().optional(),
+    topK: z.number().optional(),
+    stopSequences: z.array(z.string()).max(5).optional(),
+  }),
+});
 
 
 
-interface MessagePart {
-  text: string;
-}
+export type GoogleAIChatMessage = z.infer<
+  typeof GoogleAIV1GenerateContentSchema
+>["contents"][0];
 
-interface SquashedMessage {
-  parts: MessagePart[];
-  role: string;
-}
 
 async function openaiToPalm(body: any, req: Request) {
   const result = OpenAIV1ChatCompletionSchema.safeParse(body);
@@ -303,56 +324,56 @@ async function openaiToPalm(body: any, req: Request) {
     );
     throw result.error;
   }
-  const foundNames = new Set<string>();
+  
   const { messages, ...rest } = result.data;
-  
-    // Need to add squash for user messages also :) 
-	const contents = messages.reduce<SquashedMessage[]>((acc, curr) => {
-	  const textContent = flattenOpenAIMessageContent(curr.content);
-	  const name = curr.name?.trim() || textContent.match(/^(.*?): /)?.[1]?.trim();
-      if (name) foundNames.add(name);
+  const foundNames = new Set<string>();
+  const contents = messages
+    .map((m) => {
+      const role = m.role === "assistant" ? "model" : "user";
+      // Detects character names so we can set stop sequences for them as Gemini
+      // is prone to continuing as the next character.
+      // If names are not available, we'll still try to prefix the message
+      // with generic names so we can set stops for them but they don't work
+      // as well as real names.
+      const text = flattenOpenAIMessageContent(m.content);
+      const propName = m.name?.trim();
+      const textName =
+        m.role === "system" ? "" : text.match(/^(.{0,50}?): /)?.[1]?.trim();
+      const name =
+        propName || textName || (role === "model" ? "Character" : "User");
 
-	  if (curr.role === 'model' || curr.role === 'system' || curr.role === 'assistant') {
-		if (acc.length === 0 || acc[acc.length - 1].role !== 'model') {
-		  acc.push({
-			parts: [{ text: textContent }],
-			role: 'model',
-		  });
-		} else {
-		  acc[acc.length - 1].parts[0].text += ' ' + textContent;
-		}
-	  } else {
-		acc.push({
-		  parts: [{ text: textContent }],
-		  role: 'user',
-		});
-	  }
+      foundNames.add(name);
 
-	  return acc;
-	}, []);
+      // Prefixing messages with their character name seems to help avoid
+      // Gemini trying to continue as the next character, or at the very least
+      // ensures it will hit the stop sequence.  Otherwise it will start a new
+      // paragraph and switch perspectives.
+      // The response will be very likely to include this prefix so frontends
+      // will need to strip it out.
+      const textPrefix = textName ? "" : `${name}: `;
+      return {
+        parts: [{ text: textPrefix + text }],
+        role: m.role === "assistant" ? ("model" as const) : ("user" as const),
+      };
+    })
+    .reduce<GoogleAIChatMessage[]>((acc, msg) => {
+      const last = acc[acc.length - 1];
+      if (last?.role === msg.role) {
+        last.parts[0].text += "\n\n" + msg.parts[0].text;
+      } else {
+        acc.push(msg);
+      }
+      return acc;
+    }, []);
 
-  if (contents.length === 0 || contents[contents.length - 1].role !== 'user') {
-  contents.push({
-		parts: [{"text":"."}],
-		role: 'user',
-	  });
-	}
-	
-  if (contents.length === 0 || contents[0].role !== 'user') {
-		contents.unshift({
-			parts: [{"text":"."}],
-			role: 'user',
-		});
-	}
-  
   let stops = rest.stop
     ? Array.isArray(rest.stop)
       ? rest.stop
       : [rest.stop]
     : [];
-
   stops.push(...Array.from(foundNames).map((name) => `\n${name}:`));
   stops = [...new Set(stops)].slice(0, 5);
+
 
 
 //...rest,
