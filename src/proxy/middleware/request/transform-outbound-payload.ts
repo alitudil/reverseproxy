@@ -305,51 +305,40 @@ async function openaiToPalm(body: any, req: Request) {
   }
   
   const { messages, ...rest } = result.data;
-    // Need to add squash for user messages also :) 
-	const contents = messages.reduce<SquashedMessage[]>((acc, curr) => {
-	  const textContent = flattenOpenAIMessageContent(curr.content);
+  const foundNames = new Set<string>();
+  const contents = messages
+    .map((m) => {
+      // Detects character names so we can set stop sequences for them as Gemini
+      // is prone to continuing as the next character.
+      const text = flattenOpenAIMessageContent(m.content);
+      const name = m.name?.trim() || text.match(/^(.*?): /)?.[1]?.trim();
+      if (name) foundNames.add(name);
 
-	  if (curr.role === 'model' || curr.role === 'system' || curr.role === 'assistant') {
-		if (acc.length === 0 || acc[acc.length - 1].role !== 'model') {
-		  acc.push({
-			parts: [{ text: textContent }],
-			role: 'model',
-		  });
-		} else {
-		  acc[acc.length - 1].parts[0].text += ' ' + textContent;
-		}
-	  } else {
-		acc.push({
-		  parts: [{ text: textContent }],
-		  role: 'user',
-		});
-	  }
+      return {
+        parts: [{ text }],
+        role: m.role === "assistant" ? ("model" as const) : ("user" as const),
+      };
+    })
+    .reduce<SquashedMessage[]>((acc, msg) => {
+      const last = acc[acc.length - 1];
+      if (last?.role === msg.role) {
+        last.parts[0].text += "\n\n" + msg.parts[0].text;
+      } else {
+        acc.push(msg);
+      }
+      return acc;
+    }, []);
 
-	  return acc;
-	}, []);
-
-  if (contents.length === 0 || contents[contents.length - 1].role !== 'user') {
-  contents.push({
-		parts: [{"text":"[extend]"}],
-		role: 'user',
-	  });
-	}
-	
-  if (contents.length === 0 || contents[0].role !== 'user') {
-		contents.unshift({
-			parts: [{"text":"[start]"}],
-			role: 'user',
-		});
-	}
   
-  let stops = rest.stop
+   let stops = rest.stop
     ? Array.isArray(rest.stop)
       ? rest.stop
       : [rest.stop]
     : [];
 
-  stops.push("\n\nUser:");
-  stops = [...new Set(stops)];
+  stops.push(...Array.from(foundNames).map((name) => `\n${name}:`));
+  stops = [...new Set(stops)].slice(0, 5);
+
 
   z.array(z.string()).max(5).parse(stops);
   
@@ -365,7 +354,7 @@ async function openaiToPalm(body: any, req: Request) {
       stopSequences: stops,
       topP: rest.top_p,
       topK: 40, // openai schema doesn't have this, geminiapi defaults to 40
-      temperature: rest.temperature,
+      temperature: rest.temperature
     },
     safetySettings: [
       { category: "HARM_CATEGORY_HATE_SPEECH", threshold: "BLOCK_NONE" },
