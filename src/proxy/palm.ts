@@ -198,7 +198,7 @@ const palmProxy = createQueueMiddleware({
     selfHandleResponse: true,
     logger,
 	  pathRewrite: {
-	  '^/proxy/palm/chat/completions': '', 
+	  '^/proxy/google-ai/chat/completions': '', 
 	  }
   })
 });
