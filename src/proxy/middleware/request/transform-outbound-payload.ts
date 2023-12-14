@@ -303,34 +303,49 @@ async function openaiToPalm(body: any, req: Request) {
     );
     throw result.error;
   }
-  
-  const { messages, ...rest } = result.data;
   const foundNames = new Set<string>();
-  const contents = messages
-    .map((m) => {
-      // Detects character names so we can set stop sequences for them as Gemini
-      // is prone to continuing as the next character.
-      const text = flattenOpenAIMessageContent(m.content);
-      const name = m.name?.trim() || text.match(/^(.*?): /)?.[1]?.trim();
+  const { messages, ...rest } = result.data;
+  
+    // Need to add squash for user messages also :) 
+	const contents = messages.reduce<SquashedMessage[]>((acc, curr) => {
+	  const textContent = flattenOpenAIMessageContent(curr.content);
+	  const name = curr.name?.trim() || textContent.match(/^(.*?): /)?.[1]?.trim();
       if (name) foundNames.add(name);
 
-      return {
-        parts: [{ text }],
-        role: m.role === "assistant" ? ("model" as const) : ("user" as const),
-      };
-    })
-    .reduce<SquashedMessage[]>((acc, msg) => {
-      const last = acc[acc.length - 1];
-      if (last?.role === msg.role) {
-        last.parts[0].text += "\n\n" + msg.parts[0].text;
-      } else {
-        acc.push(msg);
-      }
-      return acc;
-    }, []);
+	  if (curr.role === 'model' || curr.role === 'system' || curr.role === 'assistant') {
+		if (acc.length === 0 || acc[acc.length - 1].role !== 'model') {
+		  acc.push({
+			parts: [{ text: textContent }],
+			role: 'model',
+		  });
+		} else {
+		  acc[acc.length - 1].parts[0].text += ' ' + textContent;
+		}
+	  } else {
+		acc.push({
+		  parts: [{ text: textContent }],
+		  role: 'user',
+		});
+	  }
 
+	  return acc;
+	}, []);
+
+  if (contents.length === 0 || contents[contents.length - 1].role !== 'user') {
+  contents.push({
+		parts: [{"text":" "}],
+		role: 'user',
+	  });
+	}
+	
+  if (contents.length === 0 || contents[0].role !== 'user') {
+		contents.unshift({
+			parts: [{"text":" "}],
+			role: 'user',
+		});
+	}
   
-   let stops = rest.stop
+  let stops = rest.stop
     ? Array.isArray(rest.stop)
       ? rest.stop
       : [rest.stop]
@@ -338,7 +353,6 @@ async function openaiToPalm(body: any, req: Request) {
 
   stops.push(...Array.from(foundNames).map((name) => `\n${name}:`));
   stops = [...new Set(stops)].slice(0, 5);
-
 
   z.array(z.string()).max(5).parse(stops);
   
