@@ -366,6 +366,7 @@ async function openaiToPalm(body: any, req: Request) {
       topP: rest.top_p,
       topK: 40, // openai schema doesn't have this, geminiapi defaults to 40
       temperature: rest.temperature,
+	    stopSequences: stops,
     },
     safetySettings: [
       { category: "HARM_CATEGORY_HATE_SPEECH", threshold: "BLOCK_NONE" },
