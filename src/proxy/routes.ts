@@ -29,7 +29,7 @@ proxyRouter.use((req, _res, next) => {
 proxyRouter.use("/kobold", kobold);
 proxyRouter.use("/openai", openai);
 proxyRouter.use("/anthropic", anthropic);
-proxyRouter.use("/palm", palm);
+proxyRouter.use("/google-ai", palm);
 proxyRouter.use("/ai21", ai21);
 proxyRouter.use("/aws", aws);
 

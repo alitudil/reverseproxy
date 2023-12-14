@@ -63,7 +63,7 @@ export const addKey: ProxyRequestMiddleware = (proxyReq, req) => {
 	proxyReq.setHeader("OpenAI-Organization", `test`);
   } else if (assignedKey.service === "anthropic") {
     proxyReq.setHeader("X-API-Key", assignedKey.key);
-  } else if (assignedKey.service == "palm") {
+} else if (assignedKey.service == "palm") {
 	proxyReq.setHeader("X-GOOG-API-KEY", assignedKey.key);
   } else {
 	if (assignedKey.key.includes(";")) {

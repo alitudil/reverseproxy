@@ -40,6 +40,7 @@ type TokenCountRequest = {
   | { prompt: string; service: "anthropic" }
   | { prompt: string; service: "aws" }
   | { prompt: string; service: "palm" }
+  | { prompt: string; service: "gemini" }
   | { prompt: string; service: "ai21" }
   | { prompt: OpenAIPromptMessage[]; service: "openai" }
   

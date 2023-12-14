@@ -7,6 +7,8 @@ import {
   PALM_SUPPORTED_MODELS,
   PalmModel,
 } from "./palm/provider";
+
+
 import {
   AI21_SUPPORTED_MODELS,
   Ai21Model,
@@ -16,10 +18,12 @@ import {
   AwsModel,
 } from "./aws/provider";
 
+
+
 import { KeyPool } from "./key-pool";
 
 export type AIService = "openai" | "anthropic" | "palm" | "ai21" | "aws";
-export type Model = OpenAIModel | AnthropicModel | PalmModel  | Ai21Model | AwsModel;
+export type Model = OpenAIModel | AnthropicModel | PalmModel  | Ai21Model | AwsModel ;
 
 export interface Key {
   /** The API key itself. Never log this, use `hash` instead. */
@@ -98,7 +102,7 @@ export const SUPPORTED_MODELS = [
   ...AWS_SUPPORTED_MODELS,
 ] as const;
 export type SupportedModel = (typeof SUPPORTED_MODELS)[number];
-export { OPENAI_SUPPORTED_MODELS, ANTHROPIC_SUPPORTED_MODELS, AI21_SUPPORTED_MODELS };
+export { OPENAI_SUPPORTED_MODELS, ANTHROPIC_SUPPORTED_MODELS, AI21_SUPPORTED_MODELS, PALM_SUPPORTED_MODELS };
 export { AnthropicKey } from "./anthropic/provider";
 export { OpenAIKey } from "./openai/provider";
 export { PalmKey } from "./palm/provider";

@@ -6,7 +6,7 @@ import axios, { AxiosError } from "axios";
 
 // https://developers.generativeai.google/api/rest/generativelanguage/models/list
 export const PALM_SUPPORTED_MODELS = [
-  "gpt-text-bison-001"
+  "gemini-pro"
 ] as const;
 export type PalmModel = (typeof PALM_SUPPORTED_MODELS)[number];
 
@@ -119,6 +119,7 @@ export class PalmKeyProvider implements KeyProvider<PalmKey> {
   }
   
   // change any > propper type 
+  // Unfuck this whole file change palm > google 
   private async checkValidity(key: any) {
 	  const payload =  {"prompt": {"text": "test"}} // Simple Prompt to check validity of request 
 	  try{

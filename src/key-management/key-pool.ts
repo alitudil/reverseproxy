@@ -189,7 +189,7 @@ export class KeyPool {
 
   private getService(model: Model): AIService {
 	// Uhhhh... i think i need to change service thingy here for AWS compatibility 
-	if (model.includes("bison")) { // Cause gpt-text-bison .-. 
+	if (model.includes("bison") || model.includes("gemini")) { // Cause gpt-text-bison .-. 
 	  return "palm";
 	} else if (model.startsWith("j2-")) {
       return "ai21";

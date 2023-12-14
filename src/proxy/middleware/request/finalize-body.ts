@@ -3,22 +3,23 @@ import type { ProxyRequestMiddleware } from ".";
 import { config } from "../../../config";
 import crypto from 'crypto';
 
-
-
-
-
-
-
-
-
 export const finalizeBody: ProxyRequestMiddleware = (proxyReq, req) => {
   if (["POST", "PUT", "PATCH"].includes(req.method ?? "") && req.body) {
     let updatedBody = JSON.stringify(req.body);
-
-    if (req.body.model === "text-bison-001") {
-      const { stream, ...bodyWithoutStream } = JSON.parse(updatedBody);
-      updatedBody = JSON.stringify(bodyWithoutStream);
-    }
+	
+    if (req.body.model === "text-bison-001" || req.body.model == "gemini-pro") {
+		const { stream, ...bodyWithoutStream } = JSON.parse(updatedBody);
+		updatedBody = JSON.stringify(bodyWithoutStream);
+		let googleRequestURL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent`;
+		console.log(req.body)
+		if (req.body.model === "text-bison-001") {
+			googleRequestURL = `https://generativelanguage.googleapis.com/v1beta/models/text-bison-001:generateContent`;
+		}
+		proxyReq.path = new URL(googleRequestURL).pathname + new URL(googleRequestURL).search;
+		console.log(proxyReq.path)
+	}
+	
+	
 	
 	if (req.key?.key.includes(";") && req.key?.specialMap != undefined) {
 		const [url, apiKey] = req.key.key.split(";");

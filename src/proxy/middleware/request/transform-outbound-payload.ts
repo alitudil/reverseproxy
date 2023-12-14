@@ -49,10 +49,10 @@ const AwsV1CompleteSchema = z.object({
   
 // https://platform.openai.com/docs/api-reference/chat/create
 const OpenAIV1ChatCompletionSchema = z.object({
-  model: z.string().regex(/^gpt/, "Model must start with 'gpt-'"),
+  model: z.string(),
   messages: z.array(
     z.object({
-      role: z.enum(["system", "user", "assistant"]),
+      role: z.enum(["system", "user", "assistant", "model"]),
       content: z.string(),
       name: z.string().optional(),
     }),
@@ -108,33 +108,30 @@ const OpenAIV1TextCompletionSchema = z
   .merge(OpenAIV1ChatCompletionSchema.omit({ messages: true }));
 
 // https://developers.generativeai.google/api/python/google/generativeai/generate_text
-const PalmChatCompletionSchema = z.object({
-  model: z.string(),
-  messages: z.array(
+const PalmChatCompletionSchema = z.object({ // Sorry khanon for borrowing it :v but ffs i don't want to write it out myself ._. 
+  model: z.string(), //actually specified in path but we need it for the router
+  contents: z.array(
     z.object({
-      role: z.enum(["system", "user", "assistant"]),
-      content: z.string(),
-      name: z.string().optional(),
-    }),
-    {
-      required_error:
-        "No prompt found. Are you sending an Anthropic-formatted request to the OpenAI endpoint?",
-      invalid_type_error:
-        "Messages were not formatted correctly. Refer to the OpenAI Chat API documentation for more information.",
-    }
+      parts: z.array(z.object({ text: z.string() })),
+      role: z.enum(["user", "model"]),
+    })
   ),
-  
-  temperature: z.number().optional().default(1),
-  candidate_count: z.number().optional().default(1),
-  stop_sequences: z.union([z.string(), z.array(z.string())]).optional(),
-  max_output_tokens: z.coerce
-    .number()
-    .int()
-    .optional()
-    .default(16)
-    .transform((v) => Math.max(v, OPENAI_OUTPUT_MAX)),
-  top_p: z.number().optional(),
-  top_k: z.number().optional()
+  tools: z.array(z.object({})).max(0).optional(),
+  safetySettings: z.array(z.object({})).max(0).optional(),
+  stopSequences: z.array(z.string()).max(5).optional(),
+  generationConfig: z.object({
+    temperature: z.number().optional(),
+    maxOutputTokens: z.coerce
+      .number()
+      .int()
+      .optional()
+      .default(16)
+      .transform((v) => Math.min(v, 1024)), // TODO: Add config
+    candidateCount: z.literal(1).optional(),
+    topP: z.number().optional(),
+    topK: z.number().optional(),
+    stopSequences: z.array(z.string()).max(5).optional(),
+  }),
 });
 
 const Ai21ChatCompletionSchema = z.object({
@@ -285,10 +282,20 @@ function openaiToOpenaiText(req: Request) {
   return validated;
 }
 
+
+
+
+interface MessagePart {
+  text: string;
+}
+
+interface SquashedMessage {
+  parts: MessagePart[];
+  role: string;
+}
+
 async function openaiToPalm(body: any, req: Request) {
-  const result = PalmChatCompletionSchema.safeParse(body);
-  
-  
+  const result = OpenAIV1ChatCompletionSchema.safeParse(body);
   if (!result.success) {
     req.log.error(
       { issues: result.error.issues, body: req.body },
@@ -296,61 +303,79 @@ async function openaiToPalm(body: any, req: Request) {
     );
     throw result.error;
   }
-
-  const { messages, ...rest } = result.data;
-  const prompt = { text: openAIMessagesToClaudePrompt(messages) };
-
-  let stops = rest.stop_sequences
-    ? Array.isArray(rest.stop_sequences)
-      ? rest.stop_sequences
-      : [rest.stop_sequences]
-    : [];
-  // Recommended by Anthropic
-  stops.push("\n\nHuman:");
-  // Helps with jailbreak prompts that send fake system messages and multi-bot
-  // chats that prefix bot messages with "System: Respond as <bot name>".
-  stops.push("\n\nSystem:");
-  // Remove duplicates
-  stops = [...new Set(stops)];
   
-  let model_choice = "text-bison-001"
-  if (req.body?.model !== undefined) {
-  }
+  const { messages, ...rest } = result.data;
+  
+  console.log(messages);
+	const contents = messages.reduce<SquashedMessage[]>((acc, curr) => {
+	  const textContent = flattenOpenAIMessageContent(curr.content);
 
+	  if (curr.role === 'model' || curr.role === 'system' || curr.role === 'assistant') {
+		if (acc.length === 0 || acc[acc.length - 1].role !== 'model') {
+		  acc.push({
+			parts: [{ text: textContent }],
+			role: 'model',
+		  });
+		} else {
+		  acc[acc.length - 1].parts[0].text += ' ' + textContent;
+		}
+	  } else {
+		acc.push({
+		  parts: [{ text: textContent }],
+		  role: 'user',
+		});
+	  }
+
+	  return acc;
+	}, []);
+
+  if (contents.length === 0 || contents[contents.length - 1].role !== 'user') {
+  contents.push({
+		parts: [{"text":"[extend]"}],
+		role: 'user',
+	  });
+	}
+	
+  if (contents.length === 0 || contents[0].role !== 'user') {
+		contents.unshift({
+			parts: [{"text":"[start]"}],
+			role: 'user',
+		});
+	}
+
+  console.log(contents);
+  
+  let stops = rest.stop
+    ? Array.isArray(rest.stop)
+      ? rest.stop
+      : [rest.stop]
+    : [];
+
+  stops.push("\n\nUser:");
+  stops = [...new Set(stops)];
+
+  z.array(z.string()).max(5).parse(stops);
+  
+
+
+//...rest,
   return {
-    ...rest,
-    // Model may be overridden in `calculate-context-size.ts` to avoid having
-    // a circular dependency (`calculate-context-size.ts` needs an already-
-    // transformed request body to count tokens, but this function would like
-    // to know the count to select a model).
-    model: model_choice,
-    prompt: prompt,
-	safety_settings: [
-{
-  "category": "HARM_CATEGORY_DEROGATORY",
-  "threshold": 4
-},
-{
-  "category": "HARM_CATEGORY_TOXICITY",
-  "threshold": 4
-},
-{
-  "category": "HARM_CATEGORY_VIOLENCE",
-  "threshold": 4
-},
-{
-  "category": "HARM_CATEGORY_SEXUAL",
-  "threshold": 4
-},
-{
-  "category": "HARM_CATEGORY_MEDICAL",
-  "threshold": 4
-},
-{
-  "category": "HARM_CATEGORY_DANGEROUS",
-  "threshold": 4
-}],
-    stop_sequences: stops,
+	model: "gemini-pro",
+    contents,
+    tools: [],
+    generationConfig: {
+      maxOutputTokens: rest.max_tokens,
+      stopSequences: stops,
+      topP: rest.top_p,
+      topK: 40, // openai schema doesn't have this, geminiapi defaults to 40
+      temperature: rest.temperature,
+    },
+    safetySettings: [
+      { category: "HARM_CATEGORY_HATE_SPEECH", threshold: "BLOCK_ONLY_HIGH" },
+      { category: "HARM_CATEGORY_SEXUALLY_EXPLICIT", threshold: "BLOCK_ONLY_HIGH" }, 
+      { category: "HARM_CATEGORY_DANGEROUS_CONTENT", threshold: "BLOCK_ONLY_HIGH" },
+      { category: "HARM_CATEGORY_HARASSMENT", threshold: "BLOCK_ONLY_HIGH" }
+    ],
   };
 }
 
@@ -460,4 +485,22 @@ function flattenOpenAiChatMessages(messages: OpenAIPromptMessage[]) {
     default:
       throw new Error(`Unknown prompt version: ${PROMPT_VERSION}`);
   }
+}
+
+
+export type OpenAIChatMessage = z.infer<
+  typeof OpenAIV1ChatCompletionSchema
+>["messages"][0];
+
+function flattenOpenAIMessageContent(
+  content: OpenAIChatMessage["content"]
+): string {
+  return Array.isArray(content)
+    ? content
+        .map((contentItem) => {
+          if ("text" in contentItem) return contentItem.text;
+          if ("image_url" in contentItem) return "[ Uploaded Image Omitted ]";
+        })
+        .join("\n")
+    : content;
 }

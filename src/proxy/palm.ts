@@ -4,8 +4,11 @@ import { createProxyMiddleware } from "http-proxy-middleware";
 import { config } from "../config";
 import { logger } from "../logger";
 import { createQueueMiddleware } from "./queue";
+import { keyPool } from "../key-management";
 import { ipLimiter } from "./rate-limit";
 import { handleProxyError } from "./middleware/common";
+import { RequestPreprocessor } from "./middleware/request";
+import { HttpRequest } from "@smithy/protocol-http";
 import {
   addKey,
   //addPalmPreamble,
@@ -31,7 +34,7 @@ const getModelsResponse = () => {
   if (!config.palmKey) return { object: "list", data: [] };
 
   const palmVariants = [
-    "gpt-text-bison-001"
+	"gemini-pro"
   ]; // F u ;v 
 
   const models = palmVariants.map((id) => ({
@@ -126,7 +129,8 @@ const palmResponseHandler: ProxyResHandlerWithBody = async (
 function transformPalmResponse(
   palmBody: Record<string, any>
 ): Record<string, any> {
-  const output = (palmBody.candidates[0]?.output || palmBody.candidates.output)?.trim();
+  console.log(palmBody.candidates[0]?.content || "");
+  const output = (palmBody.candidates[0]?.content.parts[0]?.text || "Unknown fucking error occured report to fucking drago...")?.trim();
   return {
     id: "palm-" + palmBody.log_id,
     object: "chat.completion",
@@ -150,9 +154,41 @@ function transformPalmResponse(
   };
 }
 
+export const geminiCheck: RequestPreprocessor = async (req) => {
+	const strippedParams = req.body
+	if (req.body.model.includes("gemini")) {
+		const host = "generativelanguage.googleapis.com"
+		const newRequest = new HttpRequest({
+		method: "POST",
+		protocol: "https:",
+		hostname: host,
+		path: `/v1beta/models/gemini-pro:generateContent`,
+		headers: {
+		  ["Host"]: host,
+		  ["Content-Type"]: "application/json",
+		},
+		body: JSON.stringify(strippedParams),
+	  });
+	  req.newRequest = newRequest
+	} else {
+      const newRequest = new HttpRequest({
+		  method: "POST",
+		  protocol: "https:",
+		  hostname: "generativelanguage.googleapis.com",
+		  path: `/v1beta/models/text-bison-001:generateContent`,
+		}) 
+		req.newRequest = newRequest
+  }
+}
+
 const palmProxy = createQueueMiddleware({
+  beforeProxy: geminiCheck,
   proxyMiddleware: createProxyMiddleware({
-    target: "https://generativelanguage.googleapis.com/v1beta2/models/text-bison-001:generateText",
+    target: "invalid-target-for-fun",
+	  router: ({ newRequest }) => {
+      if (!newRequest) throw new Error("Must create new request before proxying");
+      return `${newRequest.protocol}//${newRequest.hostname}`;
+    },
     changeOrigin: true,
     on: {
       proxyReq: rewritePalmRequest,
@@ -166,6 +202,9 @@ const palmProxy = createQueueMiddleware({
 	  }
   })
 });
+
+
+
 
 const palmRouter = Router();
 // Fix paths because clients don't consistently use the /v1 prefix.

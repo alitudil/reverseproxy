@@ -49,7 +49,7 @@ function cacheInfoPageHtml(baseUrl: string) {
     endpoints: {
       ...(openaiKeys ? { openai: baseUrl + "/proxy/openai" } : {}),
       ...(anthropicKeys ? { anthropic: baseUrl + "/proxy/anthropic" } : {}),
-	  ...(palmKeys ? { palm: baseUrl + "/proxy/palm" } : {}),
+	  ...(palmKeys ? { palm: baseUrl + "/proxy/google-ai" } : {}),
 	  ...(ai21Keys ? { ai21: baseUrl + "/proxy/ai21" } : {}),
 	  
     },
