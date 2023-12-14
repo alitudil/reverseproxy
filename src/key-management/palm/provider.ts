@@ -124,7 +124,7 @@ export class PalmKeyProvider implements KeyProvider<PalmKey> {
 	  const payload =  {"prompt": {"text": "test"}} // Simple Prompt to check validity of request 
 	  try{
 		const response = await axios.post(
-			'https://generativelanguage.googleapis.com/v1beta2/models/text-bison-001:generateText', payload, { headers: { 'content-type': 'application/json', 'x-goog-api-key': key.key } }
+			'https://generativelanguage.googleapis.com/v1/models/gemini-pro:generateContent', payload, { headers: { 'content-type': 'application/json', 'x-goog-api-key': key.key } }
 		);
 		
 		const check = response.data && response.data["candidates"] || false// Just for check if it doesn't find it, it will raise catch. 
