@@ -303,14 +303,11 @@ async function openaiToPalm(body: any, req: Request) {
     );
     throw result.error;
   }
-  const foundNames = new Set<string>();
   const { messages, ...rest } = result.data;
   
     // Need to add squash for user messages also :) 
 	const contents = messages.reduce<SquashedMessage[]>((acc, curr) => {
 	  const textContent = flattenOpenAIMessageContent(curr.content);
-	  const name = curr.name?.trim() || textContent.match(/^(.*?): /)?.[1]?.trim();
-      if (name) foundNames.add(name);
 
 	  if (curr.role === 'model' || curr.role === 'system' || curr.role === 'assistant') {
 		if (acc.length === 0 || acc[acc.length - 1].role !== 'model') {
@@ -350,8 +347,7 @@ async function openaiToPalm(body: any, req: Request) {
       ? rest.stop
       : [rest.stop]
     : [];
-
-  stops.push(...Array.from(foundNames).map((name) => `\n${name}:`));
+  stops.push("\n\nUser:");
   stops = [...new Set(stops)].slice(0, 5);
   
 
