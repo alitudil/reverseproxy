@@ -353,8 +353,6 @@ async function openaiToPalm(body: any, req: Request) {
 
   stops.push(...Array.from(foundNames).map((name) => `\n${name}:`));
   stops = [...new Set(stops)].slice(0, 5);
-
-  z.array(z.string()).max(5).parse(stops);
   
 
 
