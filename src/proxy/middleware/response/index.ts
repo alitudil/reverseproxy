@@ -303,8 +303,6 @@ export const CountTokenPrompt: ProxyResHandlerWithBody = async (
 	 const promptPayload= getPromptForRequest(req);
 	 const promptString = Array.isArray(promptPayload) ? promptPayload.map(message => message.content).join(" ") : promptPayload;
 	 
-	 console.log(responseBody);
-	 
 	 const request: TokenCountRequest = {
 		  req: req,
 		  prompt: promptString,
