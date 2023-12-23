@@ -183,6 +183,7 @@ function getStatusJson(req: Request) {
 
 type ServiceInfo = {
   activeKeys: number;
+  awsKeys?: number;
   trialKeys?: number;
   disabledKeys: number;
   // activeLimit: string;
