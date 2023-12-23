@@ -4,9 +4,8 @@ import { PalmKeyProvider, PalmKeyUpdate } from "./palm/provider";
 import { Ai21KeyProvider, Ai21KeyUpdate } from "./ai21/provider";
 import { Key, Model, KeyProvider, AIService } from "./index";
 import { OpenAIKeyProvider, OpenAIKeyUpdate } from "./openai/provider";
-import { AwsKeyProvider, AwsKeyUpdate } from "./aws/provider";
 
-type AllowedPartial = OpenAIKeyUpdate | AnthropicKeyUpdate | PalmKeyUpdate | Ai21KeyUpdate | AwsKeyUpdate;
+type AllowedPartial = OpenAIKeyUpdate | AnthropicKeyUpdate | PalmKeyUpdate | Ai21KeyUpdate;
 
 export class KeyPool {
   private keyProviders: KeyProvider[] = [];
@@ -16,7 +15,6 @@ export class KeyPool {
     this.keyProviders.push(new AnthropicKeyProvider());
 	this.keyProviders.push(new PalmKeyProvider());
 	this.keyProviders.push(new Ai21KeyProvider());
-	this.keyProviders.push(new AwsKeyProvider());
   }
   
   
@@ -35,9 +33,8 @@ export class KeyPool {
 	const anthropipcKeys = this.keyProviders[1].getAllKeys();
 	const palmKeys = this.keyProviders[2].getAllKeys();
 	const ai21Keys = this.keyProviders[3].getAllKeys();
-	const awsKeys = this.keyProviders[4].getAllKeys();
 
-	const combinedKeys = Array.prototype.concat.call(openaiKeys, anthropipcKeys, palmKeys, ai21Keys, awsKeys);
+	const combinedKeys = Array.prototype.concat.call(openaiKeys, anthropipcKeys, palmKeys, ai21Keys);
 	return combinedKeys;
   }
   
@@ -46,9 +43,7 @@ export class KeyPool {
 	  const anthropicProvider = this.keyProviders[1]
 	  const palmProvider = this.keyProviders[2]
 	  const ai21Provider = this.keyProviders[3]
-	  const awsProvider = this.keyProviders[4]
-	  
-	  
+  
 	  let val = false
 	  if (key.includes("sk-ant-api")) {
 		val = anthropicProvider.addKey(key);
@@ -58,8 +53,6 @@ export class KeyPool {
 		val = openaiProvider.addKey(key);
 	  } else if (key.includes("AIzaSy")) {
 		val = palmProvider.addKey(key);
-	  } else if (key.includes("AKIA")) {
-		val = awsProvider.addKey(key);
 	  } else {
 		  val = ai21Provider.addKey(key);
 	  }
@@ -73,9 +66,7 @@ export class KeyPool {
 	const anthropicProvider = this.keyProviders[1]
 	const palmProvider = this.keyProviders[2]
 	const ai21Provider = this.keyProviders[3]
-	const awsProvider = this.keyProviders[4]
-	
-	
+
 	const prefix = keyHash.substring(0, 3);
 	if (prefix === 'oai') {
 		openaiProvider.deleteKeyByHash(keyHash);
@@ -88,9 +79,6 @@ export class KeyPool {
 		return true 
 	} else if (prefix === 'ai2') { 
     	ai21Provider.deleteKeyByHash(keyHash);
-		return true 
-	} else if (prefix === 'aws') { 
-    	awsProvider.deleteKeyByHash(keyHash);
 		return true 	
 	} else {
 		// Nothing invalid key, shouldn't be possible (Maybe in future handle error)
@@ -117,13 +105,9 @@ export class KeyPool {
 	const availableKeys = this.available("all");
   }
 
-  public get(model: Model): Key {
+  public get(model: Model, applyRateLimit: boolean = true): Key {
     const service = this.getService(model);
-    return this.getKeyProvider(service).get(model);
-  }
-  
-  public getAWS(model: Model): Key {
-    return this.getKeyProvider("aws").get(model);
+	return this.getKeyProvider(service).get(model, applyRateLimit);
   }
   
 
@@ -188,17 +172,14 @@ export class KeyPool {
   }
 
   private getService(model: Model): AIService {
-	// Uhhhh... i think i need to change service thingy here for AWS compatibility 
-	if (model.includes("bison") || model.includes("gemini")) { // Cause gpt-text-bison .-. 
+	if (model.includes("bison") || model.includes("gemini")) {
 	  return "palm";
 	} else if (model.startsWith("j2-")) {
       return "ai21";
     } else if (model.startsWith("gpt")) {
       return "openai";
-    } else if (model.startsWith("claude-")) {
+    } else if (model.startsWith("claude-") || model.startsWith("anthropic.")) {
       return "anthropic";
-    } else if (model.startsWith("anthropic.")) {
-      return "aws";
     }
 	
     throw new Error(`Unknown service for model '${model}'`);

@@ -194,7 +194,7 @@ export class OpenAIKeyProvider implements KeyProvider<OpenAIKey> {
     });
   }
 
-  public get(model: Model) {
+  public get(model: Model, applyRateLimit: boolean = true) {
     const needGpt4 = model.startsWith("gpt-4");
 	const needGpt432k = model.startsWith("gpt-4-32k");
 	
@@ -326,16 +326,11 @@ export class OpenAIKeyProvider implements KeyProvider<OpenAIKey> {
 	}
 	
 	
-    selectedKey.lastUsed = now;
-
-    // When a key is selected, we rate-limit it for a brief period of time to
-    // prevent the queue processor from immediately flooding it with requests
-    // while the initial request is still being processed (which is when we will
-    // get new rate limit headers).
-    // Instead, we will let a request through every second until the key
-    // becomes fully saturated and locked out again.
-    selectedKey.rateLimitedAt = now;
-    selectedKey.rateLimitRequestsReset = 1000;
+	if (applyRateLimit) {
+		selectedKey.lastUsed = now;
+		selectedKey.rateLimitedAt = now;
+		selectedKey.rateLimitRequestsReset = 1000;
+	}
     return { ...selectedKey };
   }
   

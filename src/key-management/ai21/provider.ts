@@ -6,7 +6,7 @@ import axios, { AxiosError } from "axios";
 
 // https://developers.generativeai.google/api/rest/generativelanguage/models/list
 export const AI21_SUPPORTED_MODELS = [
-  "gpt-j2-ultra"
+  "j2-ultra"
 ] as const;
 export type Ai21Model = (typeof AI21_SUPPORTED_MODELS)[number];
 
@@ -155,7 +155,7 @@ export class Ai21KeyProvider implements KeyProvider<Ai21Key> {
     return this.keys.map((k) => Object.freeze({ ...k, key: undefined }));
   }
 
-  public get(_model: Ai21Model) {
+  public get(_model: Ai21Model, applyRateLimit: boolean = true) {
     const availableKeys = this.keys.filter((k) => !k.isDisabled && !k.isRevoked);
     if (availableKeys.length === 0) {
       throw new Error("No AI21 keys available.");

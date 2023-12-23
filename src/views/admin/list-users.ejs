@@ -10,13 +10,45 @@
 <div id="allActive" style="display: inline;"></div>
 <br>
 <div id="allActiveTemp" style="display: inline;"></div><br><br>
-
+<hr> Additional Actions 
+<button onclick="remove1monthTempKeys()">Remove all temp tokens over 1 month</button> 
+<br><br>
 <script>
 const oneDayInMilliseconds = 24 * 60 * 60 * 1000;
 const oneWeekInMilliseconds = oneDayInMilliseconds * 7;
 const oneMonthInMilliseconds = oneDayInMilliseconds * 30.44;
 const currentTime = Date.now();
 const data = <%- JSON.stringify(users) %>;
+
+function remove1monthTempKeys()  {
+	const currentTimestamp = Date.now();
+	const usersToDelete = [];
+	data.forEach(function(user){
+		if (user.type == "temp") {
+			if (user.lastUsedAt <= currentTimestamp-oneMonthInMilliseconds) {
+				usersToDelete.push(user);
+			} else if (typeof user.lastUsedAt == 'undefined' && user.createdAt <= currentTimestamp-oneMonthInMilliseconds) {
+				usersToDelete.push(user);
+			}
+		}
+	})
+	const confirmation = window.confirm("Do you want to delete "+usersToDelete.length+" temp tokens? (more than 1 month old)");
+	if (confirmation) {
+		usersToDelete.forEach(function(user){ 
+			fetch(
+          "/admin/manage/delete-user/" + user.token,
+          { 
+            method: "POST", 
+            credentials: "same-origin",
+            body: JSON.stringify({  _csrf: document.querySelector("meta[name=csrf-token]").getAttribute("content") }),
+            headers: { "Content-Type": "application/json" }
+          }).then(() => window.location.reload())  
+		})
+	}
+}
+
+
+
 
 let filteredTokens = data.filter(item => {
   const isPromptLimitMinusOne = item.promptLimit === -1;

@@ -5,6 +5,7 @@ import { ProxyRequestMiddleware } from ".";
 /** Add a key that can service this request to the request object. */
 export const addKey: ProxyRequestMiddleware = (proxyReq, req) => {
   let assignedKey: Key;
+  
 
   if (!isCompletionRequest(req)) {
     // Horrible, horrible hack to stop the proxy from complaining about clients
@@ -43,8 +44,6 @@ export const addKey: ProxyRequestMiddleware = (proxyReq, req) => {
   if (req.inboundApi === "openai" && req.outboundApi === "anthropic") {
     req.log.debug("Using an Anthropic key for an OpenAI-compatible request");
     assignedKey = keyPool.get("claude-v1");
-  } else if (req.inboundApi === "aws") {
-	assignedKey = keyPool.getAWS("anthropic.claude-v2")   
   } else {
     assignedKey = keyPool.get(req.body.model);
   }
@@ -59,9 +58,7 @@ export const addKey: ProxyRequestMiddleware = (proxyReq, req) => {
     },
     "Assigned key to request"
   );
-  if (assignedKey.service === "aws") {
-	proxyReq.setHeader("OpenAI-Organization", `test`);
-  } else if (assignedKey.service === "anthropic") {
+  if (assignedKey.service === "anthropic") {
     proxyReq.setHeader("X-API-Key", assignedKey.key);
 } else if (assignedKey.service == "palm") {
 	proxyReq.setHeader("X-GOOG-API-KEY", assignedKey.key);

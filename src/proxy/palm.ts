@@ -12,6 +12,7 @@ import { HttpRequest } from "@smithy/protocol-http";
 import {
   addKey,
   //addPalmPreamble,
+  addImageFromPromptGemini,
   blockZoomerOrigins,
   createPreprocessorMiddleware,
   finalizeBody,
@@ -34,7 +35,9 @@ const getModelsResponse = () => {
   if (!config.palmKey) return { object: "list", data: [] };
 
   const palmVariants = [
-	"gemini-pro"
+    //"chat-bison-001",
+	"gemini-pro",
+	//"gemini-pro-vision",
   ]; // F u ;v 
 
   const models = palmVariants.map((id) => ({
@@ -78,6 +81,7 @@ const rewritePalmRequest = (
   const rewriterPipeline = [
     addKey,
     //addPalmPreamble,
+	//addImageFromPromptGemini, fuck that for now you can't do multi turn anyways 
     languageFilter,
     blockZoomerOrigins,
     removeOriginHeaders,
@@ -155,26 +159,30 @@ function transformPalmResponse(
 
 export const geminiCheck: RequestPreprocessor = async (req) => {
 	const strippedParams = req.body
+
 	if (req.body.model.includes("gemini")) {
 		const host = "generativelanguage.googleapis.com"
 		const newRequest = new HttpRequest({
 		method: "POST",
 		protocol: "https:",
-		hostname: host,
-		path: `/v1beta/models/gemini-pro:generateContent`,
+		hostname: host, 
+		path: `/v1beta/models/${req.body.model}:${strippedParams.stream ? 'streamGenerateContent' : 'generateContent'}`,
 		headers: {
-		  ["Host"]: host,
-		  ["Content-Type"]: "application/json",
+		  ["host"]: host,
+		  ["content-type"]: "application/json",
 		},
 		body: JSON.stringify(strippedParams),
-	  });
+	  })
+	  if (strippedParams.stream) {
+		newRequest.headers["accept"] = "*/*";
+	  }
 	  req.newRequest = newRequest
 	} else {
       const newRequest = new HttpRequest({
 		  method: "POST",
 		  protocol: "https:",
 		  hostname: "generativelanguage.googleapis.com",
-		  path: `/v1beta/models/text-bison-001:generateContent`,
+		  path: `/v1beta/models/${req.body.model}:${strippedParams.stream ? 'streamGenerateContent' : 'generateContent'}`,
 		}) 
 		req.newRequest = newRequest
   }

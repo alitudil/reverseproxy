@@ -8,8 +8,6 @@ const PALM_COMPLETION_ENDPOINT = "/proxy/google-ai/chat/completions";
 const GEMINI_COMPLETION_ENDPOINT = "/proxy/gemini/chat/completions";
 const AI21_COMPLETION_ENDPOINT = "/proxy/ai21/chat/completions";
 
-
-
 /** Returns true if we're making a request to a completion endpoint. */
 export function isCompletionRequest(req: Request) {
   return (

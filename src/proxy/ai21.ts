@@ -31,7 +31,7 @@ const getModelsResponse = () => {
   if (!config.ai21Key) return { object: "list", data: [] };
 
   const ai21Variants = [
-    "gpt-j2-ultra"
+    "j2-ultra"
   ]; 
 
   const models = ai21Variants.map((id) => ({

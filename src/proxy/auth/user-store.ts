@@ -23,6 +23,12 @@ export interface User {
   allowGpt: boolean;
   allowClaude: boolean;
   
+  /** Replacement for prompt/token count **/
+  allPromptCount: Map<string, number>; 
+  allTokenCountInput: Map<string, number>; 
+  allTokenCountOutput: Map<string, number>; 
+  
+  
   note?: string;
   /** The IP addresses the user has connected from. */
   ip: string[];
@@ -45,6 +51,8 @@ export interface User {
   /** The number of tokens the user has consumed. Not yet implemented. (Working on it) */
   tokenClaudeCount: number;
   tokenGptCount: number;
+  
+  
   
   
   /** Rate limit of user_token */
@@ -97,6 +105,9 @@ export function createUser(rLimit: any, pLimit: any) {
 	alias: "Degenerate",
 	note: "Edit",
     ip: [],
+	allPromptCount: new Map(),
+	allTokenCountInput: new Map(),
+	allTokenCountOutput: new Map(),
 	ipPromptCount: new Map(),
     type: "normal",
     promptCount: 0,
@@ -137,6 +148,9 @@ export function createTempUser(pLimit: any, tLimit: any, rLimit: any) {
 	allowClaude: true, 
 	allowPalm: true, 
 	allowAi21: true, 
+	allPromptCount: new Map(),
+	allTokenCountInput: new Map(),
+	allTokenCountOutput: new Map(),
 	note: "Edit",
 	tokenHash: `${crypto.createHash("sha256").update(token).digest("hex")}`,
     ip: [],
@@ -199,6 +213,10 @@ export function getPublicUsers() {
 		  allowClaude: user[1].allowClaude,
 		  allowGpt: user[1].allowGpt,
 		  allowPalm: user[1].allowPalm,
+		  allPromptCount: Object.fromEntries(user[1].allPromptCount.entries()),
+		  allTokenCountInput: Object.fromEntries(user[1].allTokenCountInput.entries()),
+		  allTokenCountOutput: Object.fromEntries(user[1].allTokenCountOutput.entries()),
+		  
 		  type: user[1].type,
 		  promptLimit: user[1].promptLimit,
 		  timeLimit: user[1].timeLimit,
@@ -246,6 +264,9 @@ export function upsertUser(user: UserUpdate) {
 	allowClaude: true,
 	allowGpt: true,
 	allowPalm: true,
+	allPromptCount: new Map(),
+	allTokenCountInput: new Map(),
+	allTokenCountOutput: new Map(),
 	note: "Edit",
     ip: [],
     type: "normal",
@@ -335,7 +356,11 @@ export function incrementPromptCount(token: string, model: string, user_ip: stri
 	  user.promptClaudeCount++;
   }
   
-  
+  // New prompt counting 
+  const currentValue = user.allPromptCount.get(model) || 0;
+  const incrementedValue = currentValue + 1;
+  user.allPromptCount.set(model, incrementedValue);
+
   if(user.type == "temp" && (user.disabledAt ?? false) == false) {
 	  if ((user.endTimeLimit ?? 0) == -1 && (user.promptLimit ?? 0) == -1) {
 		  user.endTimeLimit = Date.now() + ((user.timeLimit ?? 0)*1000);
@@ -382,9 +407,18 @@ export function incrementPromptCount(token: string, model: string, user_ip: stri
 
 
 /** Increments the token count for the given user by the given amount. */
-export function incrementTokenCount(token: string, amount = 1, service: string) {
+export function incrementTokenCount(token: string, amount = 1, service: string, model: string, outputTokenAmount: number) {
   const user = users.get(token);
   if (!user) return;
+  
+  // New Token counting 
+  const currentInputValue = user.allTokenCountInput.get(model) || 0;
+  const currentOutputValue = user.allTokenCountOutput.get(model) || 0;
+  const incrementedInputValue = currentInputValue + amount - outputTokenAmount;
+  const incrementedOutputValue = currentOutputValue + outputTokenAmount;
+  
+  user.allTokenCountInput.set(model, incrementedInputValue);
+  user.allTokenCountOutput.set(model, incrementedOutputValue);
   
   if (service == "openai") {
 	user.tokenGptCount += amount;

@@ -271,27 +271,21 @@ export class OpenAIKeyChecker {
   private async getProvisionedModels(
     key: OpenAIKey
   ): Promise<{ turbo: boolean; gpt4: boolean; gpt432k: boolean; gpt4turbo: boolean; specialMap: { [key: string]: string }} > {
-	
-	if (key.key.includes(";") == true){
-		key.isSpecial = true;
-		key.auth = key.key.split(";")[1]
-		key.endpoint = key.key.split(";")[0]
-	} 
-
 	let opts = {}
 	if (key.key.includes(";") == false) {
 		opts = { headers: { Authorization: `Bearer ${key.key}`, } };
 	} else {
-		opts = { headers: { 'api-key': `${key.auth}`, 'Content-Type': 'application/json'} };
+		opts = { headers: { 'api-key': `${key.key.split(";")[1]}`, 'Content-Type': 'application/json'} };
 	}
-
 	
+	let auth = undefined
+	let endpoint = undefined 
 	let turbo = false;
 	let gpt4 = false;
 	let gpt432k = false;
 	let gpt4turbo = false;
 	const specialMap: { [key: string]: string } = {};
-
+	
 	if (key.key.includes(";") == false) {
 		let { data } = await axios.get<GetModelsResponse>(GET_MODELS_URL, opts);
 		let models = data.data;
@@ -301,14 +295,17 @@ export class OpenAIKeyChecker {
 		gpt4turbo = models.some(({ id }) => id.startsWith("gpt-4-1106"));
 	} else {
 		let data = {}
-		const headers: AxiosRequestConfig['headers'] = {
-		   'User-Agent': 'OpenAI/v1 PythonBindings/0.28.0', 
+	   
+        auth = key.key.split(";")[1]
+	    endpoint = key.key.split(";")[0]
+
+		let headers: AxiosRequestConfig['headers'] = {
 		  'Content-Type': 'application/json',
-		  'api-key': key.auth,
+		  'api-key': auth,
 		};
 		
 		try {
-			const response = await axios.get(key.endpoint+"/openai/deployments?api-version=2023-03-15-preview", {headers});
+			const response = await axios.get(endpoint+"/openai/deployments?api-version=2023-03-15-preview", {headers});
 			for (const index in response.data.data) {
 				if (response.data.data[index].status == "succeeded") {
 					specialMap[response.data.data[index].model] = response.data.data[index].id
@@ -316,7 +313,7 @@ export class OpenAIKeyChecker {
 						gpt4 = true 
 					} else if (response.data.data[index].model == "gpt-4-32k") {
 						gpt432k = true 
-					} else if (response.data.data[index].model == "gpt-4-1106-preview") {
+					} else if (response.data.data[index].model.includes("gpt-4-1106") == true) {
 						gpt4turbo = true 
 					}  else if (response.data.data[index].model.includes("gpt-3") == true) {
 						turbo = true 
@@ -328,6 +325,7 @@ export class OpenAIKeyChecker {
 		} catch(e){ 
 			// console.log(e);
 			// Invalid endpoint 	
+			//console.log(e);
 		}
 
 	
@@ -344,8 +342,8 @@ export class OpenAIKeyChecker {
 	  isGpt432k: gpt432k,
 	  isGpt4Turbo: gpt4turbo,
 	  isSpecial: key.isSpecial,
-	  endpoint: key.endpoint,
-	  auth: key.auth,
+	  endpoint: endpoint,
+	  auth: auth,
       lastChecked: keyFromPool.lastChecked,
     });
     return { turbo, gpt4, gpt432k, gpt4turbo, specialMap };

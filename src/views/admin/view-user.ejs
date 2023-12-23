@@ -131,8 +131,13 @@ function toggleExpand(timestamp) {
 	<a href="#" id="ipcount-list-toggle">Show all (<%= Array.from(user.ipPromptCount.values()).reduce((acc, count) => acc + count, 0) %>)</a>
 	<ol id="ipcount-list" style="display:none; padding-left:1em; margin: 0;">
     <% Array.from(user.ipPromptCount.entries()).forEach(([timestamp, count], index) => { %>
+			<% totalPromptCount = 0 %>
+			<% Object.entries(count).forEach(([ip, promptCount]) => { %>
+				<% totalPromptCount = totalPromptCount + promptCount %>
+			<% }) %>
+	
 			<div>
-				<a href="#" onclick="toggleExpand('<%= timestamp %>')"><%= new Date(parseInt(timestamp)).toLocaleString() %></a>
+				<a href="#" onclick="toggleExpand('<%= timestamp %>')"><%= new Date(parseInt(timestamp)).toLocaleString() %> (<%= totalPromptCount %>)</a>
 				<div id="expand_<%= timestamp %>" style="display: none;">
 					<% Object.entries(count).forEach(([ip, promptCount]) => { %>
 						<div>IP: <%= ip %>, Prompt Count: <%= promptCount %></div>

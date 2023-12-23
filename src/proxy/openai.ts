@@ -183,20 +183,19 @@ const SPECIAL_HOST =
 
 
 export const specialCheck: RequestPreprocessor = async (req) => {
-	req.key = keyPool.get(req.body.model);
+	req.key = keyPool.get(req.body.model, false);
 	
 	const strippedParams = req.body
 	
 	if (req.key?.key.includes(";")) {
-	
+		if (req.key?.specialMap) {
+		const deployment = req.key?.specialMap[req.body.model] ;
 		const host = req.key.endpoint || ""
-		
-		
 		const newRequest = new HttpRequest({
 		method: "POST",
 		protocol: "https:",
 		hostname: host.replace("https://",""),
-		path: `/openai/deployments/gpt-4-32k/chat/completions?api-version=2023-03-15-preview`,
+		path: `/openai/deployments/${deployment}/chat/completions?api-version=2023-03-15-preview`,
 		headers: {
 		  ["Host"]: host,
 		  ["Content-Type"]: "application/json",
@@ -214,7 +213,8 @@ export const specialCheck: RequestPreprocessor = async (req) => {
     }) 
 	req.newRequest = newRequest
   }
-	
+
+}
 	
 	
 }

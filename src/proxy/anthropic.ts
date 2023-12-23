@@ -6,6 +6,14 @@ import { logger } from "../logger";
 import { createQueueMiddleware } from "./queue";
 import { ipLimiter } from "./rate-limit";
 import { handleProxyError } from "./middleware/common";
+import { keyPool } from "../key-management";
+import { Sha256 } from "@aws-crypto/sha256-js";
+import { SignatureV4 } from "@smithy/signature-v4";
+import { HttpRequest } from "@smithy/protocol-http";
+import { RequestPreprocessor } from "./middleware/request";
+import { AnthropicV1CompleteSchema } from "./middleware/request/transform-outbound-payload";
+
+
 import {
   addKey,
   addAnthropicPreamble,
@@ -44,7 +52,11 @@ const getModelsResponse = () => {
     "claude-instant-v1.0",
     "claude-2", // claude-2 is 100k by default it seems
     "claude-2.0",
-    "claude-2.1"
+    "claude-2.1",
+	"anthropic.claude-v1",
+	"anthropic.claude-v2:0",
+	"anthropic.claude-v2:1",
+	"anthropic.claude-instant-v1"
   ];
 
   const models = claudeVariants.map((id) => ({
@@ -143,9 +155,104 @@ function transformAnthropicResponse(
   };
 }
 
+
+async function sign(request: HttpRequest, accessKeyId: string, secretAccessKey: string, region: string) {
+  const signer = new SignatureV4({
+    sha256: Sha256,
+    credentials: { accessKeyId, secretAccessKey },
+    region,
+    service: "bedrock",
+  });
+  return signer.sign(request);
+}
+
+export const awsCheck: RequestPreprocessor = async (req) => {
+	req.key = keyPool.get(req.body.model, false);
+
+	if (req.key?.isAws) {
+		const strippedParams = AnthropicV1CompleteSchema.pick({
+			prompt: true,
+			max_tokens_to_sample: true,
+			stop_sequences: true,
+			temperature: true,
+			top_k: true,
+			top_p: true,
+		  }).parse(req.body);
+
+		
+		
+		let { model, stream } = req.body;
+		req.isStreaming = stream === true || stream === "true";
+		
+		let modelSelected = model
+		if (modelSelected == "claude-2.1" || modelSelected == "claude-2"){
+			modelSelected = "anthropic.claude-v2:1"
+		} else if (modelSelected == "claude-2.0"){
+			modelSelected = "anthropic.claude-v2:0"
+		} else if (modelSelected == "claude-v1" || modelSelected == "claude-v1-100k" || modelSelected == "claude-v1.0"){
+			modelSelected = "anthropic.claude-v1"
+		} else if (modelSelected.includes("instant")) {
+			modelSelected = "anthropic.claude-instant-v1"
+		} else {
+			// Would need to preffet non aws keys ':v but well for now.. this is it :3 
+			modelSelected = "anthropic.claude-v2:1"
+		}
+		
+		let preamble = req.body.prompt.startsWith("\n\nHuman:") ? "" : "\n\nHuman:";
+		req.body.prompt = preamble + req.body.prompt;
+
+		req.body.model = modelSelected
+		
+		const key = req.key.key 
+		const awsSecret = req.key.awsSecret || ""
+		const awsRegion = req.key.awsRegion || ""
+		
+		req.headers["anthropic-version"] = "2023-06-01";
+		
+		const host = req.key.endpoint || ""
+		const newRequest = new HttpRequest({
+		method: "POST",
+		protocol: "https:",
+		hostname: `bedrock-runtime.${awsRegion}.amazonaws.com`,
+		path: `/model/${modelSelected}/invoke${stream ? "-with-response-stream" : ""}`,
+		headers: {
+		  ["Host"]: `bedrock-runtime.${awsRegion}.amazonaws.com`,
+		  ["content-type"]: "application/json",  
+			},
+			body: JSON.stringify(strippedParams),
+		});
+		
+		if (stream) {
+			newRequest.headers["x-amzn-bedrock-accept"] = "application/json";
+		} else {
+			newRequest.headers["accept"] = "*/*";
+		}
+		req.signedRequest = await sign(newRequest, key, awsSecret, awsRegion);
+
+	} else {
+		const newRequest = new HttpRequest({
+		  method: "POST",
+		  protocol: "https:",
+		  hostname: "https://api.anthropic.com",
+		  path: `/v1/complete`,
+		}) 
+		req.newRequest = newRequest
+  }
+
+}
+	
+	
+
+
+
 const anthropicProxy = createQueueMiddleware({
+  beforeProxy: awsCheck,
   proxyMiddleware: createProxyMiddleware({
-    target: "https://api.anthropic.com",
+    target: "invalid-target-for-fun",
+	  router: ({ signedRequest }) => {
+      if (!signedRequest) throw new Error("Must create new request before proxying");
+      return `${signedRequest.protocol}//${signedRequest.hostname}`;
+    },
     changeOrigin: true,
     on: {
       proxyReq: rewriteAnthropicRequest,
@@ -156,7 +263,7 @@ const anthropicProxy = createQueueMiddleware({
     logger,
     pathRewrite: {
       // Send OpenAI-compat requests to the real Anthropic endpoint.
-      "^/v1/chat/completions": "/v1/complete",
+      "^/v1/chat/completions": "",
     },
   }),
 });

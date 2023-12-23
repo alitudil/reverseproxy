@@ -13,17 +13,14 @@ import {
   AI21_SUPPORTED_MODELS,
   Ai21Model,
 } from "./ai21/provider";
-import {
-  AWS_SUPPORTED_MODELS,
-  AwsModel,
-} from "./aws/provider";
+
 
 
 
 import { KeyPool } from "./key-pool";
 
-export type AIService = "openai" | "anthropic" | "palm" | "ai21" | "aws";
-export type Model = OpenAIModel | AnthropicModel | PalmModel  | Ai21Model | AwsModel ;
+export type AIService = "openai" | "anthropic" | "palm" | "ai21";
+export type Model = OpenAIModel | AnthropicModel | PalmModel  | Ai21Model ;
 
 export interface Key {
   /** The API key itself. Never log this, use `hash` instead. */
@@ -57,8 +54,10 @@ export interface Key {
   /** Hash of the key, for logging and to find the key in the pool. */
   hash: string;
   
-  secret?: string;
-  region?:string;
+  /** Aws specific */
+  isAws?: boolean;
+  readonly awsSecret?: string;
+  readonly awsRegion?: string;
 }
 
 /*
@@ -81,7 +80,7 @@ export interface KeyProvider<T extends Key = Key> {
   deleteKeyByHash(keyHash: string): boolean;
   getHashes(): string[];
   getAllKeys(): Object;
-  get(model: Model): T;
+  get(model: Model, applyRateLimit: boolean): T;
   list(): Omit<T, "key">[];
   disable(key: T): void;
   update(hash: string, update: Partial<T>): void;
@@ -98,8 +97,7 @@ export const SUPPORTED_MODELS = [
   ...OPENAI_SUPPORTED_MODELS,
   ...ANTHROPIC_SUPPORTED_MODELS,
   ...PALM_SUPPORTED_MODELS,
-  ...AI21_SUPPORTED_MODELS,
-  ...AWS_SUPPORTED_MODELS,
+  ...AI21_SUPPORTED_MODELS
 ] as const;
 export type SupportedModel = (typeof SUPPORTED_MODELS)[number];
 export { OPENAI_SUPPORTED_MODELS, ANTHROPIC_SUPPORTED_MODELS, AI21_SUPPORTED_MODELS, PALM_SUPPORTED_MODELS };
@@ -107,4 +105,3 @@ export { AnthropicKey } from "./anthropic/provider";
 export { OpenAIKey } from "./openai/provider";
 export { PalmKey } from "./palm/provider";
 export { Ai21Key } from "./ai21/provider";
-export { AwsKey } from "./aws/provider";

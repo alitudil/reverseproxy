@@ -43,7 +43,6 @@ function cacheInfoPageHtml(baseUrl: string) {
   const palmKeys = keys.filter((k) => k.service === "palm").length;
   const ai21Keys = keys.filter((k) => k.service === "ai21").length;
 
-
   const info = {
     uptime: process.uptime(),
     endpoints: {
@@ -146,7 +145,7 @@ function cacheInfoPageHtml(baseUrl: string) {
      .replaceAll('{anthropic:activeKeys}', (substring: string) => anthropic_info.claude?.activeKeys?.toString() ?? "0")
 	 .replaceAll('{anthropic:revokedKeys}', (substring: string) => anthropic_info.claude?.revokedKeys?.toString() ?? "0")
 	 .replaceAll('{anthropic:disabledKeys}', (substring: string) => anthropic_info.claude?.disabledKeys?.toString() ?? "0")
-	 .replaceAll('{anthropic:pozzedKeys}', (substring: string) => anthropic_info.claude?.pozzedKeys?.toString() ?? "0")
+	 .replaceAll('{anthropic:awsKeys}', (substring: string) => anthropic_info.claude?.awsKeys?.toString() ?? "0")
      .replaceAll('{anthropic:proomptersInQueue}', (substring: string) => anthropic_info.claude?.proomptersInQueue?.toString() ?? "0")
      .replaceAll('{anthropic:estimatedQueueTime}', (substring: string) => anthropic_info.claude?.estimatedQueueTime?.toString() ?? "No wait");
   infoPageLastUpdated = Date.now();
@@ -349,7 +348,7 @@ function getAnthropicInfo() {
   const claudeInfo: Partial<ServiceInfo> = {};
   const keys = keyPool.list().filter((k) => k.service === "anthropic");
   claudeInfo.activeKeys = keys.filter((k) => !k.isDisabled && !k.isRevoked).length;
-  claudeInfo.pozzedKeys = keys.filter((k) => k.isPozzed).length;
+  claudeInfo.awsKeys = keys.filter((k) => k.isAws).length;
   claudeInfo.revokedKeys = keys.filter((k) => k.isRevoked).length;
   claudeInfo.disabledKeys = keys.filter((k) => k.isDisabled).length;
   if (config.queueMode !== "none") {
@@ -359,6 +358,7 @@ function getAnthropicInfo() {
   }
   return { claude: claudeInfo };
 }
+
 
 /**
  * If the server operator provides a `greeting.md` file, it will be included in

@@ -6,7 +6,9 @@ import axios, { AxiosError } from "axios";
 
 // https://developers.generativeai.google/api/rest/generativelanguage/models/list
 export const PALM_SUPPORTED_MODELS = [
-  "gemini-pro"
+  //"chat-bison-001",
+  "gemini-pro",
+  //"gemini-pro-vision"
 ] as const;
 export type PalmModel = (typeof PALM_SUPPORTED_MODELS)[number];
 
@@ -151,7 +153,7 @@ export class PalmKeyProvider implements KeyProvider<PalmKey> {
     return this.keys.map((k) => Object.freeze({ ...k, key: undefined }));
   }
 
-  public get(_model: PalmModel) {
+  public get(_model: PalmModel, applyRateLimit: boolean = true) {
     const availableKeys = this.keys.filter((k) => !k.isDisabled && !k.isRevoked);
     if (availableKeys.length === 0) {
       throw new Error("No Palm keys available.");

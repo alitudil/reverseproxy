@@ -2,16 +2,16 @@
 
 
 
-<style> 
-.header { background: linear-gradient(to bottom right, #8955c0, #4d0099); background-color: #8955c0; padding: 20px; text-align: center; } 
-html {
-  background-color: #1a1a1a;
-}
-body {
-  background-color: #1a1a1a;
-  color: white;
-}
-
+  <style> 
+  .header { background: linear-gradient(to bottom right, #8955c0, #4d0099); background-color: #8955c0; padding: 20px; text-align: center; } 
+  html {
+    background-color: #1a1a1a;
+  }
+  body {
+    background-color: #1a1a1a;
+    color: white;
+  }
+  
 .box {
   display: flex;
   margin-bottom: 10px;
@@ -162,11 +162,14 @@ if (window.location.href.includes("?")) {
   
 <% } %>
 
+<% if (user.promptLimit === -1) { %>
 <center>
 <div class="chart-container" style="position: relative; height:50vh; width:100%">
 <div style="position: relative; height:50vh; width:50%">Token Consumption<canvas id="tokenChart" width="400" height="400"></canvas></div>
 <div style="position: relative; height:50vh; width:50%">Prompt Consumption<canvas id="promptChart" width="400" height="400"></canvas></div>
 </div></center>
+<% } %>
+<br><br><br><br>
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
 <script>

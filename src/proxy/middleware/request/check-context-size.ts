@@ -30,10 +30,6 @@ export const checkContextSize: RequestPreprocessor = async (req) => {
     case "anthropic":
       req.outputTokens = req.body.max_tokens_to_sample;
       prompt = req.body.prompt;
-      break;
-	case "aws":
-      req.outputTokens = req.body.max_tokens_to_sample;
-      prompt = req.body.prompt;
       break;  
 	case "palm":
 	  req.outputTokens = 1; // ._. 
@@ -93,10 +89,12 @@ function validateContextSize(req: Request) {
     modelMax = 100000;
   } else if (model.match(/text-bison-001-32k/)) {
     modelMax = 32768; // doesn't matter 
+  } else if (model.match(/gemini-pro-vision/)) {
+    modelMax = 16384; // doesn't matter 
   } else if (model.match(/gemini-pro/)) {
     modelMax = 32768; // doesn't matter 
-  } else if (model.match(/text-bison-001/)) {
-    modelMax = 8192; // doesn't matter 
+  } else if (model.match(/chat-bison-001/)) {
+    modelMax = 4096; // doesn't matter 
   } else if (model.match(/j2-ultra/)) {
     modelMax = 8192; // doesn't matter 
   } else {

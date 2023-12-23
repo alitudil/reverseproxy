@@ -31,7 +31,16 @@ export interface AnthropicKey extends Key {
   /** The time until which this key is rate limited. */
   rateLimitedUntil: number;
   isRevoked: boolean;
+  
+  /** If key is AWS one :'3 yk amount != better, i will not go route with amount of endpoints ';V rather will focus on providing 1 endpoint for 1 type of models*/
+  isAws: boolean; 
+  /** Variables that only exist on AWS key: key = accesKey ._. **/ 
+  awsSecret?: string;
+  awsRegion?: string; 
+  
+  /** Currently not needed tbh no pozzing as of recent ;v **/
   isPozzed: boolean;
+  
   /**
    * Whether this key requires a special preamble.  For unclear reasons, some
    * Anthropic keys will throw an error if the prompt does not begin with a
@@ -70,8 +79,18 @@ export class AnthropicKeyProvider implements KeyProvider<AnthropicKey> {
     }
     let bareKeys: string[];
     bareKeys = [...new Set(keyConfig.split(",").map((k) => k.trim()))];
-    for (const key of bareKeys) {
-      const newKey: AnthropicKey = {
+    for (let key of bareKeys) {
+      let isAws = false 
+	  let awsSecret = ""
+	  let awsRegion = ""
+	  if (key.startsWith("AKIA")) {
+		isAws = true;
+		const spliced = key.split(":");
+		key = spliced[0] 
+		awsSecret = spliced[1]
+		awsRegion = spliced[2] 
+	  }	
+	  const newKey: AnthropicKey = {
         key,
 		org: "None",
         service: this.service,
@@ -81,7 +100,10 @@ export class AnthropicKeyProvider implements KeyProvider<AnthropicKey> {
         isDisabled: false,
 		isRevoked: false, 
 		isPozzed: false,
-        promptCount: 0,
+		isAws: isAws,
+        awsRegion: awsRegion ?? "",
+		awsSecret: awsSecret ?? "", 
+		promptCount: 0,
         lastUsed: 0,
         rateLimitedAt: 0,
         rateLimitedUntil: 0,
@@ -95,7 +117,7 @@ export class AnthropicKeyProvider implements KeyProvider<AnthropicKey> {
       };
       this.keys.push(newKey);
     }
-    this.log.info({ keyCount: this.keys.length }, "Loaded Anthropic keys.");
+    this.log.info({ keyCount: this.keys.length }, "Loaded Anthropic/AWS keys.");
   }
   
   public deleteKeyByHash(keyHash: string) {
@@ -112,10 +134,25 @@ export class AnthropicKeyProvider implements KeyProvider<AnthropicKey> {
 	  if (isDuplicate) {
 		return false;
 	  }
+	  
+	  let isAws = false 
+	  let awsSecret = ""
+	  let awsRegion = ""
+	  let keyFinalValue = keyValue
+	  if (keyValue.startsWith("AKIA")) {
+		isAws = true;
+		const spliced = keyValue.split(":");
+		keyFinalValue = spliced[0] 
+		awsSecret = spliced[1]
+		awsRegion = spliced[2] 
+	  }	
 	  const newKey: AnthropicKey = {
-        key: keyValue,
+        key: keyFinalValue,
 		org: "None",
         service: this.service,
+		isAws: isAws,
+		awsSecret: awsSecret ?? "",
+		awsRegion: awsRegion ?? "",
         isGpt4: false,
 		isGpt432k: false,
         isTrial: false,
@@ -173,7 +210,7 @@ export class AnthropicKeyProvider implements KeyProvider<AnthropicKey> {
     return this.keys.map((k) => Object.freeze({ ...k, key: undefined }));
   }
 
-  public get(_model: AnthropicModel) {
+  public get(_model: AnthropicModel, applyRateLimit: boolean = true) {
     // Currently, all Anthropic keys have access to all models. This will almost
     // certainly change when they move out of beta later this year.
     const availableKeys = this.keys.filter((k) => !k.isDisabled && !k.isRevoked);

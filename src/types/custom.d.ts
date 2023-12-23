@@ -28,6 +28,7 @@ declare global {
       // TODO: remove later
       debug: Record<string, any>;
 	  newRequest: HttpRequest;
+	  signedRequest: HttpRequest;
     }
   }
 }

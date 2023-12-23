@@ -9,7 +9,7 @@ const CLAUDE_OUTPUT_MAX = config.maxOutputTokensAnthropic;
 const OPENAI_OUTPUT_MAX = config.maxOutputTokensOpenAI;
 
 // https://console.anthropic.com/docs/api/reference#-v1-complete
-const AnthropicV1CompleteSchema = z.object({
+export const AnthropicV1CompleteSchema = z.object({
   model: z.string().regex(/^claude-/, "Model must start with 'claude-'"),
   prompt: z.string({
     required_error:
@@ -27,23 +27,6 @@ const AnthropicV1CompleteSchema = z.object({
   metadata: z.any().optional(),
 });
 
-const AwsV1CompleteSchema = z.object({
-  model: z.string(),
-  prompt: z.string({
-    required_error:
-      "No prompt found. Are you sending an OpenAI-formatted request to the Claude endpoint?",
-  }),
-  max_tokens_to_sample: z.coerce
-    .number()
-    .int()
-    .transform((v) => Math.min(v, CLAUDE_OUTPUT_MAX)),
-  stop_sequences: z.array(z.string()).optional(),
-  stream: z.boolean().optional().default(false),
-  temperature: z.coerce.number().optional().default(1),
-  top_k: z.coerce.number().optional().default(-1),
-  top_p: z.coerce.number().optional().default(-1),
-  metadata: z.any().optional(),
-});
 
 
   
@@ -169,17 +152,21 @@ export const transformOutboundPayload: RequestPreprocessor = async (req) => {
   const sameService = req.inboundApi === req.outboundApi;
   const alreadyTransformed = req.retryCount > 0;
   const notTransformable = !isCompletionRequest(req);
+  
+
 
   if (alreadyTransformed || notTransformable) {
     return;
   }
 
+  
+
   if (sameService) {
     const validator =
       req.outboundApi === "openai"
         ? OpenAIV1ChatCompletionSchema
-		: req.outboundApi === "anthropic" || req.outboundApi === "aws"
-		? AwsV1CompleteSchema
+		: req.outboundApi === "anthropic"
+		? AnthropicV1CompleteSchema
 		: OpenAIV1TextCompletionSchema;
     const result = validator.safeParse(req.body);
     if (!result.success) {
@@ -214,6 +201,7 @@ export const transformOutboundPayload: RequestPreprocessor = async (req) => {
     req.body = await openaiToAi21(req.body, req);
     return;
   }
+
 
   throw new Error(
     `'${req.inboundApi}' -> '${req.outboundApi}' request proxying is not supported. Make sure your client is configured to use the correct API.`
@@ -287,7 +275,17 @@ const GoogleAIV1GenerateContentSchema = z.object({
   stream: z.boolean().optional().default(false), // also used for router
   contents: z.array(
     z.object({
-      parts: z.array(z.object({ text: z.string() })),
+      parts: z.array(
+		  z.object({
+			text: z.string(),
+			fileData: z.optional(
+			  z.object({
+				mimeType: z.string(),
+				fileUri: z.string(),
+			  })
+			),
+		  })
+		),
       role: z.enum(["user", "model"]),
     })
   ),
@@ -378,8 +376,9 @@ async function openaiToPalm(body: any, req: Request) {
 
 //...rest,
   return {
-	model: "gemini-pro",
+	model: rest.model,
     contents,
+	stream: rest.stream,
     tools: [],
     generationConfig: {
       maxOutputTokens: rest.max_tokens,

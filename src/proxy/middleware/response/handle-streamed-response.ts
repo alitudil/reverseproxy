@@ -58,6 +58,7 @@ export const handleStreamedResponse: RawResponseBodyHandler = async (
     throw err;
   }
 
+
   const key = req.key!;
   if (proxyRes.statusCode !== 200) {
     // Ensure we use the non-streaming middleware stack since we won't be
@@ -106,15 +107,27 @@ export const handleStreamedResponse: RawResponseBodyHandler = async (
         // We may receive multiple (or partial) SSE messages in a single chunk,
         // so we need to buffer and emit seperate stream events for full
         // messages so we can parse/transform them properly.
+
         const str = chunk.toString();
+		
+		
+		
+		if (req.key && req.key.isAws) {
+			const match = str.match(/{"bytes":"([^"]+)"}/);
+			if (match){
+				const payload = "data: "+Buffer.from(match[1], 'base64').toString('utf-8');
+				proxyRes.emit("full-sse-event", payload);
+			}
+			
+			
+		} else {
+			const fullMessages = (partialMessage + str).split(/\r?\n\r?\n/);
+			partialMessage = fullMessages.pop() || "";
 
-        // Anthropic uses CRLF line endings (out-of-spec btw)
-        const fullMessages = (partialMessage + str).split(/\r?\n\r?\n/);
-        partialMessage = fullMessages.pop() || "";
-
-        for (const message of fullMessages) {
-          proxyRes.emit("full-sse-event", message);
-        }
+			for (const message of fullMessages) {
+			  proxyRes.emit("full-sse-event", message);
+			}
+		}
       })
     );
 
@@ -193,6 +206,8 @@ function transformEvent({
   }
 
   const event = JSON.parse(data.slice("data: ".length));
+  
+  
   const newEvent = {
     id: "ant-" + event.log_id,
     object: "chat.completion.chunk",

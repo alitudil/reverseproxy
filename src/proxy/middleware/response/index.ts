@@ -217,9 +217,6 @@ const getPromptForRequest = (req: Request): string | OaiMessage[] => {
   if (req.outboundApi === "anthropic") {
     return req.body.prompt;
   } 
-  if (req.outboundApi === "aws") {
-    return req.body.prompt;
-  } 
   if (req.outboundApi === "palm") {
     return req.body.candidates[0]?.content.parts;
   } 
@@ -285,27 +282,54 @@ export const CountTokenPrompt: ProxyResHandlerWithBody = async (
 		};
 	  const tokenCount = await countTokens(request);
 	  
+	  const outputRequest: TokenCountRequest = {
+		  req: req,
+		  prompt: [responseBody.choices[0].message],
+		  service: "openai"
+		};
+	  const outputTokenCount = await countTokens(outputRequest);
+	  
+	  
+	  
 
 	  incrementGlobalTokenCount(tokenCount.token_count,"openai");
+	  
 	  if (config.gatekeeper == "user_token") {
 		  if (req.user !== undefined) {
-	         incrementTokenCount(req.user.token,tokenCount.token_count,"openai");
+	         incrementTokenCount(req.user.token, tokenCount.token_count, "openai", req.body.model, outputTokenCount.token_count);
 		  }
 	  }
   } else if (req.outboundApi == "anthropic") {
 	 const promptPayload= getPromptForRequest(req);
 	 const promptString = Array.isArray(promptPayload) ? promptPayload.map(message => message.content).join(" ") : promptPayload;
+	 
+	 
 	 const request: TokenCountRequest = {
 		  req: req,
 		  prompt: promptString,
 		  service: "anthropic"
 		};
 	  const tokenCount = await countTokens(request);
+	  let outputPrompt = ""
+	  
+	  if (req.key && req.key.isAws) {
+		  outputPrompt = responseBody.completion;
+		} else {
+		  outputPrompt = responseBody.prompt;
+		}
+
+	  const outputRequest: TokenCountRequest = {
+		  req: req,
+		  prompt: outputPrompt,
+		  service: "anthropic"
+		};
+	  const outputTokenCount = await countTokens(outputRequest);
+	  
 
 	  incrementGlobalTokenCount(tokenCount.token_count,"anthropic");
 	  if (config.gatekeeper == "user_token") {
 		  if (req.user !== undefined) {
-				incrementTokenCount(req.user.token,tokenCount.token_count,"anthropic");
+				incrementTokenCount(req.user.token, tokenCount.token_count, "anthropic", req.body.model, outputTokenCount.token_count);
 		  }
 	  }
 	  
