@@ -274,7 +274,7 @@ export const CountTokenPrompt: ProxyResHandlerWithBody = async (
 	  const promptPayload: OpenAIPromptMessage[] = Array.isArray(getPromptForRequest(req))
 	  ? (getPromptForRequest(req) as OaiMessage[]).map((message: OaiMessage) => ({ content: message.content, role: message.role || "user" }))
 	  : [{ content: getPromptForRequest(req) as string, role: "user" }];
-
+	  
 	  const request: TokenCountRequest = {
 		  req: req,
 		  prompt: promptPayload,

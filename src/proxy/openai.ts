@@ -189,33 +189,32 @@ export const specialCheck: RequestPreprocessor = async (req) => {
 	
 	if (req.key?.key.includes(";")) {
 		if (req.key?.specialMap) {
-		const deployment = req.key?.specialMap[req.body.model] ;
-		const host = req.key.endpoint || ""
-		const newRequest = new HttpRequest({
-		method: "POST",
-		protocol: "https:",
-		hostname: host.replace("https://",""),
-		path: `/openai/deployments/${deployment}/chat/completions?api-version=2023-03-15-preview`,
-		headers: {
-		  ["Host"]: host,
-		  ["Content-Type"]: "application/json",
-		  ["api-key"]: `${req.key.auth}` || "",
-		},
-		body: JSON.stringify(strippedParams),
-	  });
-	  req.newRequest = newRequest
+			const deployment = req.key?.specialMap[req.body.model] ;
+			const host = req.key.endpoint || ""
+			const newRequest = new HttpRequest({
+			method: "POST",
+			protocol: "https:",
+			hostname: host.replace("https://",""),
+			path: `/openai/deployments/${deployment}/chat/completions?api-version=2023-03-15-preview`,
+			headers: {
+			  ["Host"]: host,
+			  ["Content-Type"]: "application/json",
+			  ["api-key"]: `${req.key.auth}` || "",
+			},
+			body: JSON.stringify(strippedParams),
+		  });
+		  req.newRequest = newRequest
+	  }
+	  
 	} else {
-    const newRequest = new HttpRequest({
-      method: "POST",
-      protocol: "https:",
-      hostname: "api.openai.com",
-      path: `/v1/chat/completions`,
-    }) 
-	req.newRequest = newRequest
-  }
-
-}
-	
+		const newRequest = new HttpRequest({
+		  method: "POST",
+		  protocol: "https:",
+		  hostname: "api.openai.com",
+		  path: `/v1/chat/completions`,
+		});
+		req.newRequest = newRequest
+	  }
 	
 }
 
