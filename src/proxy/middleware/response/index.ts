@@ -303,6 +303,7 @@ export const CountTokenPrompt: ProxyResHandlerWithBody = async (
 	 const promptPayload= getPromptForRequest(req);
 	 const promptString = Array.isArray(promptPayload) ? promptPayload.map(message => message.content).join(" ") : promptPayload;
 	 
+	 console.log(responseBody);
 	 
 	 const request: TokenCountRequest = {
 		  req: req,
@@ -312,10 +313,10 @@ export const CountTokenPrompt: ProxyResHandlerWithBody = async (
 	  const tokenCount = await countTokens(request);
 	  let outputPrompt = ""
 	  
-	  if (req.key && req.key.isAws) {
+	  if (req.key && req.key.isAws == true) {
 		  outputPrompt = responseBody.completion;
 		} else {
-		  outputPrompt = responseBody.prompt;
+		  outputPrompt = responseBody.completion;
 		}
 
 	  const outputRequest: TokenCountRequest = {

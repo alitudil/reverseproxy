@@ -233,10 +233,11 @@ export const awsCheck: RequestPreprocessor = async (req) => {
 		const newRequest = new HttpRequest({
 		  method: "POST",
 		  protocol: "https:",
-		  hostname: "https://api.anthropic.com",
-		  path: `/v1/complete`,
+		  hostname: "api.anthropic.com",
+		  path: `/v1/ `,
 		}) 
-		req.newRequest = newRequest
+		req.signedRequest = newRequest
+		
   }
 
 }
