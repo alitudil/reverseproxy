@@ -54,7 +54,7 @@ const getModelsResponse = () => {
     "claude-2.0",
     "claude-2.1",
 	"anthropic.claude-v1",
-	"anthropic.claude-v2:0",
+	"anthropic.claude-v2",
 	"anthropic.claude-v2:1",
 	"anthropic.claude-instant-v1"
   ];
@@ -188,7 +188,7 @@ export const awsCheck: RequestPreprocessor = async (req) => {
 		if (modelSelected == "claude-2.1" || modelSelected == "claude-2"){
 			modelSelected = "anthropic.claude-v2:1"
 		} else if (modelSelected == "claude-2.0"){
-			modelSelected = "anthropic.claude-v2:0"
+			modelSelected = "anthropic.claude-v2"
 		} else if (modelSelected == "claude-v1" || modelSelected == "claude-v1-100k" || modelSelected == "claude-v1.0"){
 			modelSelected = "anthropic.claude-v1"
 		} else if (modelSelected.includes("instant")) {

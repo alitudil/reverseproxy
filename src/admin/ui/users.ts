@@ -302,7 +302,7 @@ router.post("/import-users", upload.single("users"), (req, res) => {
   const data = JSON.parse(req.file.buffer.toString());
 
   data.users = data.users.map((user: userStore.User) => {
-  const { ipPromptCount, ...newUser } = user;
+  const { ipPromptCount, allPromptCount, allTokenCountInput, allTokenCountOutput, ...newUser } = user;
   return newUser;
 });
   const result = z.array(UserSchemaWithToken).safeParse(data.users);

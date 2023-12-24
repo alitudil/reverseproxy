@@ -80,7 +80,7 @@ export const createOnProxyResHandler = (apiMiddleware: ProxyResMiddleware) => {
 
     try {
       const body = await initialHandler(proxyRes, req, res);
-		
+     
       const middlewareStack: ProxyResMiddleware = [];
 
       if (req.isStreaming) {
@@ -175,7 +175,6 @@ export const decodeResponseBody: RawResponseBodyHandler = async (
     proxyRes.on("data", (chunk) => chunks.push(chunk));
     proxyRes.on("end", async () => {
       let body = Buffer.concat(chunks);
-
       const contentEncoding = proxyRes.headers["content-encoding"];
       if (contentEncoding) {
         if (isSupportedContentEncoding(contentEncoding)) {
@@ -274,6 +273,7 @@ export const CountTokenPrompt: ProxyResHandlerWithBody = async (
 	  const promptPayload: OpenAIPromptMessage[] = Array.isArray(getPromptForRequest(req))
 	  ? (getPromptForRequest(req) as OaiMessage[]).map((message: OaiMessage) => ({ content: message.content, role: message.role || "user" }))
 	  : [{ content: getPromptForRequest(req) as string, role: "user" }];
+
 	  
 	  const request: TokenCountRequest = {
 		  req: req,
@@ -323,7 +323,6 @@ export const CountTokenPrompt: ProxyResHandlerWithBody = async (
 		  service: "anthropic"
 		};
 	  const outputTokenCount = await countTokens(outputRequest);
-	  
 
 	  incrementGlobalTokenCount(tokenCount.token_count,"anthropic");
 	  if (config.gatekeeper == "user_token") {

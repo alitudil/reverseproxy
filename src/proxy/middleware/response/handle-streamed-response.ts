@@ -88,6 +88,7 @@ export const handleStreamedResponse: RawResponseBodyHandler = async (
 
     const originalEvents: string[] = [];
     let partialMessage = "";
+	let fullMessage = ""; //For anthropic token counting 
     let lastPosition = 0;
 
     type ProxyResHandler<T extends unknown> = (...args: T[]) => void;
@@ -116,14 +117,22 @@ export const handleStreamedResponse: RawResponseBodyHandler = async (
 			const match = str.match(/{"bytes":"([^"]+)"}/);
 			if (match){
 				const payload = "data: "+Buffer.from(match[1], 'base64').toString('utf-8');
+				const decodedPayload = JSON.parse(payload.slice(6,))
 				proxyRes.emit("full-sse-event", payload);
-			}
+				
+				fullMessage =  fullMessage + decodedPayload["completion"];
 			
-			
+				if (decodedPayload["stop_reason"] != null) {
+					decodedPayload["completion"] = fullMessage
+					resolve(decodedPayload);
+				}
+			} else {}
 		} else {
 			const fullMessages = (partialMessage + str).split(/\r?\n\r?\n/);
 			partialMessage = fullMessages.pop() || "";
-
+			if (str.startsWith("event: completion")) {
+				fullMessage = fullMessage + JSON.parse(str.split("\n")[1].split("data: ")[1])["completion"]
+			}
 			for (const message of fullMessages) {
 			  proxyRes.emit("full-sse-event", message);
 			}
@@ -150,8 +159,12 @@ export const handleStreamedResponse: RawResponseBodyHandler = async (
       "end",
       withErrorHandling(() => {
         let finalBody = convertEventsToFinalResponse(originalEvents, req);
+		if ('completion' in finalBody) {
+			finalBody["completion"] = fullMessage;
+		};
         req.log.info({ key: key.hash }, `Finished proxying SSE stream.`);
         res.end();
+		
         resolve(finalBody);
       })
     );
