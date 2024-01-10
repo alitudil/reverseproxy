@@ -244,7 +244,7 @@ function getOpenAIInfo() {
 
   if (config.checkKeys) {
     const turboKeys = keys.filter((k) => !k.isGpt4 && !k.isGpt432k);
-    const gpt4Keys = keys.filter((k) => k.isGpt4);
+    const gpt4Keys = keys.filter((k) => k.isGpt4 && !k.isGpt432k);
 	const gpt432kKeys = keys.filter((k) => k.isGpt432k);
 	const gpt4turboKeys = keys.filter((k) => k.isGpt4Turbo);
 

@@ -75,6 +75,8 @@ export class OpenAIKeyChecker {
   public start() {
     this.log.info("Starting key checker...");
     this.scheduleNextCheck();
+	this.log.info("Double check for org keys...");
+    this.scheduleNextCheck();
   }
 
   public stop() {
@@ -209,12 +211,12 @@ export class OpenAIKeyChecker {
       if (isInitialCheck) {
 		
 		
-        const [/* subscription,*/ provisionedModels, livenessTest] =
+        const [provisionedModels, livenessTest] =
           await Promise.all([
             // this.getSubscription(key),
             this.getProvisionedModels(key),
             this.testLiveness(key),
-			this.getOrganization(key)
+			      this.getOrganization(key),
           ]
 		  );
 		  
@@ -273,10 +275,20 @@ export class OpenAIKeyChecker {
   ): Promise<{ turbo: boolean; gpt4: boolean; gpt432k: boolean; gpt4turbo: boolean; specialMap: { [key: string]: string }} > {
 	let opts = {}
 	if (key.key.includes(";") == false) {
-		opts = { headers: { Authorization: `Bearer ${key.key}`, } };
+		opts = { headers: { 
+			Authorization: `Bearer ${key.key}`,
+			...(key.org !== 'default' ? { 'OpenAI-Organization': key.org } : {})
+			}
+
+			};
 	} else {
-		opts = { headers: { 'api-key': `${key.key.split(";")[1]}`, 'Content-Type': 'application/json'} };
+		opts = { headers: { 
+			'api-key': `${key.key.split(";")[1]}`, 
+			'Content-Type': 'application/json'
+			} };
 	}
+	
+	
 	
 	let auth = undefined
 	let endpoint = undefined 
@@ -505,6 +517,7 @@ export class OpenAIKeyChecker {
 						rateLimitRequestsReset: 0,
 						rateLimitTokensReset: 0,
 					  });
+
 				}
 			})
 		} 
@@ -532,8 +545,6 @@ export class OpenAIKeyChecker {
 			validateStatus: (status) => status === 400,
 		  }
 		);
-		
-		
 		const rateLimitHeader = headers["x-ratelimit-limit-requests"];
 		const rateLimit = parseInt(rateLimitHeader) || 3500; // trials have 200
 
