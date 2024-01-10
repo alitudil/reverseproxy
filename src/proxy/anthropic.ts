@@ -189,12 +189,11 @@ export const awsCheck: RequestPreprocessor = async (req) => {
 			modelSelected = "anthropic.claude-v2:1"
 		} else if (modelSelected == "claude-2.0"){
 			modelSelected = "anthropic.claude-v2"
-		} else if (modelSelected == "claude-v1" || modelSelected == "claude-v1-100k" || modelSelected == "claude-v1.0"){
+		} else if (modelSelected == "claude-v1.2" || modelSelected == "claude-v1" || modelSelected == "claude-v1.3" || modelSelected == "claude-v1.3-100k"  || modelSelected == "claude-v1-100k" || modelSelected == "claude-v1.0"){
 			modelSelected = "anthropic.claude-v1"
 		} else if (modelSelected.includes("instant")) {
 			modelSelected = "anthropic.claude-instant-v1"
 		} else {
-			// Would need to preffet non aws keys ':v but well for now.. this is it :3 
 			modelSelected = "anthropic.claude-v2:1"
 		}
 		
