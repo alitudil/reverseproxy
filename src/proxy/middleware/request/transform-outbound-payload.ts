@@ -22,8 +22,8 @@ export const AnthropicV1CompleteSchema = z.object({
   stop_sequences: z.array(z.string()).optional(),
   stream: z.boolean().optional().default(false),
   temperature: z.coerce.number().optional().default(1),
-  top_k: z.coerce.number().optional().default(-1),
-  top_p: z.coerce.number().optional().default(-1),
+  top_k: z.coerce.number().optional().default(0),
+  top_p: z.coerce.number().optional().default(1),
   metadata: z.any().optional(),
 });
 
